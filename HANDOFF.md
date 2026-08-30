@@ -1,54 +1,43 @@
 # HANDOFF - ClipboardHistory
 
 > Updated: 2026-08-30
-> Repo: D:/Codexapp/ClipboardHistory
-> Branch: main
-> Last commit: 376a56e init: clipboard history app
+> Repo: https://github.com/ningyue520/clipboard-history (private)
+> Branch: main, Tag: v1.0, Latest: b10cf01
 
 ## Current Status
 
-- Electron clipboard history app for Windows.
-- Baseline features are implemented: text/image capture, search, pin, delete, retention, tray, global shortcut, OCR, and local persistence.
-- Current working tree contains unfinished UI refactoring and shortcut capture changes.
-- Main UI is currently blocked by a renderer-side script error.
+- v1.0 is complete, tagged, and pushed. Working tree is clean.
+- Verified end-to-end: text/image capture, card rendering, search, pin, delete, copy, paste, retention switching, settings panel, tray, global shortcut recording + invocation, offline OCR, minimize, tab navigation.
+- NSIS installer rebuilt at dist/历史粘贴板 Setup 1.0.0.exe with all fixes and unpacked traineddata.
 
-## Blocker
+## Fixed in v1.0
 
-- Symptom: history cards do not render, and settings UI cannot be used reliably.
-- Console error observed: SyntaxError: Identifier 'api' has already been declared at renderer/app.js.
-- renderer/app.js currently contains only one top-level const api = window.api;.
-- Next engineer should confirm whether the script is being evaluated twice or whether a preload/global binding conflicts with the renderer script's api declaration.
-- The main process still appears to work: %APPDATA%/历史粘贴板/entries.json contains captured entries, so this is primarily a renderer/UI issue.
+- Renderer crash "Identifier api has already been declared": contextBridge exposes a non-configurable window.api; app.js now wraps its body in an IIFE.
+- Letter-key shortcut recording produced invalid accelerators ("Control+Alt+KeyJ"); normalized to Electron format ("Control+Alt+J").
+- showWindow() crashed the main process after window destruction; guarded with isDestroyed().
+- Packaged-build OCR crashed with "Only absolute URLs are supported" (tesseract.js mis-detects Electron env as non-node); language data now loads via cachePath pointing to asarUnpacked files.
 
-## Uncommitted Work
+## Known Issues / Debt
 
-- main.js: smaller frameless window, max size 520x520, single-instance lock, retention validation, custom shortcut IPC, and clipboard/image dedupe improvements.
-- preload.js: exposes shortcut capture pause/resume controls.
-- renderer/index.html: compact floating-window layout, settings panel, and custom shortcut input.
-- renderer/app.js: simplified list rendering, settings sync, and shortcut capture handler.
-- renderer/styles.css: light solid/glass-inspired styling, drag/no-drag regions, and compact cards.
+1. Shortcut registration failure is silent (console only); no UI feedback.
+2. restoreBounds() does not validate monitor bounds; multi-monitor unplug can restore off-screen.
+3. Image dedupe compares only the last clipboard key; alternating content can duplicate entries.
+4. window.close() (hide-to-tray) detaches the CDP target permanently; automated UI verification needs an app restart afterwards.
 
-## Immediate Next Steps
+## Suggested Next Steps for v1.1
 
-1. Fix the renderer api declaration/runtime issue.
-2. Verify history cards render after copying text and images.
-3. Verify search, pin, delete, copy, paste, retention switching, and settings panel.
-4. Verify custom shortcut recording and global shortcut invocation.
-5. Clean temporary debug files: debug-*.js and debug-render.png.
-6. Decide whether to keep chi_sim.traineddata / eng.traineddata; if keeping them for offline OCR, wire them through langPath.
-7. Run checks and create a stage commit.
+1. Surface shortcut registration failures in the settings UI (add shortcutOk to getPayload).
+2. Strengthen dedupe with per-entry key sets.
+3. Validate restoreBounds against the visible display area.
+4. Optional: GitHub Release workflow that uploads the NSIS installer for v1.x tags.
+
+## Packaging
+
+Use the mirror and the no-sign flag that already worked on this machine:
+
+ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/
+npx electron-builder --config.win.signAndEditExecutable=false
 
 ## Runtime Data
 
-- %APPDATA%/历史粘贴板/settings.json
-- %APPDATA%/历史粘贴板/entries.json
-- %APPDATA%/历史粘贴板/images/
-- %APPDATA%/历史粘贴板/window.json
-
-## Packaging Note
-
-The last successful NSIS build used ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/ and:
-
-npx electron-builder --config.win.signAndEditExecutable=false
-
-This avoids the non-admin Windows symlink issue with winCodeSign, but the executable is unsigned and editable metadata is disabled.
+%APPDATA%/历史粘贴板/{settings.json, entries.json, images/, window.json}

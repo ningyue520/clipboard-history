@@ -25,4 +25,4 @@
 ## Coding Rules
 - Keep CommonJS and existing style; do not introduce TypeScript or frameworks.
 - Never store secrets; data is local-only.
-- Keep IPC surface limited to the existing seven channels.
+- Keep the IPC surface limited to the existing channels (7 invoke + 3 one-way events).
