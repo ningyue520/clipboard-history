@@ -15,6 +15,8 @@
 - Tesseract downloads language data on first OCR use.
 - Windows installer requires a valid app icon; current icon is generated under assets.
 - contextBridge.exposeInMainWorld creates a non-configurable window property; a top-level const with the same name in the renderer throws "Identifier has already been declared". Renderer app.js wraps its body in an IIFE to avoid the global declaration conflict.
+- Global shortcut accelerators must use Electron format (single letters like "J"), not KeyboardEvent.code format ("KeyJ"); recording UI must normalize to the Electron format or registration fails.
+- Global hotkey, tray, and second-instance callbacks must guard win with isDestroyed() before touching the window, or they crash the main process after the window is destroyed.
 
 ## Build Notes
 - 
