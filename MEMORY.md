@@ -18,6 +18,7 @@
 - Global shortcut accelerators must use Electron format (single letters like "J"), not KeyboardEvent.code format ("KeyJ"); recording UI must normalize to the Electron format or registration fails.
 - Global hotkey, tray, and second-instance callbacks must guard win with isDestroyed() before touching the window, or they crash the main process after the window is destroyed.
 - Offline OCR loads local traineddata via langPath with gzip:false (local files lack the .gz suffix); packaging must include them via build.files and asarUnpack.
+- tesseract.js mis-detects Electron as "electron" (not "node") inside worker threads, so langPath with a Windows path triggers node-fetch "Only absolute URLs" errors; load language data through cachePath pointing at real unpacked files instead.
 
 ## Build Notes
 - 
