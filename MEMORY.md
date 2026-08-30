@@ -10,6 +10,7 @@
 - v1.1: closing the window exits the app by default; `closeToTray` setting switches to hide-to-tray.
 - v1.1: image preview opens a standalone window (~80% work area) with wheel zoom 1-8x centered on cursor, drag pan, click to shrink-to-fit, click again to close.
 - v1.1: "paste now" removed; card actions are copy / favorite / delete.
+- On startup the current clipboard content is recorded as a baseline and not saved as history; only copies made after launch become entries, so fresh installs open blank.
 - v1.1 motion is CSS-only (card stagger, press feedback, panel pop, window fade) plus frosted glass on search/tabs/panel; cards stay solid for readability.
 - OCR languages: chi_sim + eng.
 - UI: macOS-inspired acrylic/glass look with CSS fallback.
