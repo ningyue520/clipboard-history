@@ -251,7 +251,7 @@ function bindEvents() {
     if (e.metaKey) parts.push('Super');
 
     let key = '';
-    if (/^[a-zA-Z]$/.test(e.key)) key = 'Key' + e.key.toUpperCase();
+    if (/^[a-zA-Z]$/.test(e.key)) key = e.key.toUpperCase();
     else if (/^[0-9]$/.test(e.key)) key = e.key;
     else if (/^F([1-9]|1[0-2])$/.test(e.key)) key = e.key;
     else if (['Up', 'Down', 'Left', 'Right', 'Space', 'Enter', 'Backspace', 'Delete', 'Home', 'End', 'PageUp', 'PageDown', 'Tab', 'Insert'].includes(e.key)) key = e.key;

@@ -165,7 +165,7 @@ function restoreBounds() {
 }
 
 function showWindow() {
-  if (!win) return;
+  if (!win || win.isDestroyed()) return;
   processExpirations();
   if (win.isMinimized()) win.restore();
   win.show();
