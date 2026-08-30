@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; img-src 'self' img: data:; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+  <title>历史粘贴板</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- 顶部：可拖拽的标题栏 + 搜索 -->
+  <header class="titlebar">
+    <div class="brand">
+      <span class="brand-dot"></span>
+      历史粘贴板
+    </div>
+    <div class="search">
+      <span class="search-icon">⌕</span>
+      <input id="search" type="text" placeholder="搜索文字或图片里的内容…" autocomplete="off" spellcheck="false" />
+      <span id="clear-search" class="clear-search" hidden>&times;</span>
+    </div>
+    <button id="settings-btn" class="icon-btn" title="设置">⚙</button>
+  </header>
+
+  <!-- 标签页 -->
+  <nav class="tabs">
+    <button class="tab on" data-tab="active">全部</button>
+    <button class="tab" data-tab="pinned">已置顶</button>
+    <button class="tab" data-tab="expired">已过期 <span id="expired-badge" class="badge" hidden>0</span></button>
+    <span class="spacer"></span>
+    <span class="retention-label">保留</span>
+    <select id="retention" class="retention-select" title="超过此期限的内容会进入“已过期”区">
+      <option value="1">1 天</option>
+      <option value="3">3 天</option>
+      <option value="5">5 天</option>
+    </select>
+  </nav>
+
+  <!-- 卡片列表 -->
+  <main id="list"></main>
+
+  <!-- 空状态 -->
+  <div id="empty" class="empty" hidden>
+    <div class="empty-icon">📋</div>
+    <p id="empty-text">还没有记录，复制点什么试试吧</p>
+    <p class="empty-sub">复制文字或截图后，会自动出现在这里</p>
+  </div>
+
+  <!-- 底部提示 -->
+  <footer class="foot">Ctrl + Shift + V 随时呼出本窗口</footer>
+
+  <!-- 设置面板 -->
+  <div id="settings-overlay" class="overlay" hidden>
+    <div class="panel">
+      <div class="panel-head">
+        <h2>设置</h2>
+        <button id="settings-close" class="icon-btn">✕</button>
+      </div>
+      <div class="row">
+        <div class="row-label">保留期限</div>
+        <div class="seg" id="seg-retention">
+          <button data-days="1">1 天</button>
+          <button data-days="3" class="on">3 天</button>
+          <button data-days="5">5 天</button>
+        </div>
+        <div class="row-hint">超过期限的内容会移到“已过期”区，置顶内容永不过期</div>
+      </div>
+      <div class="row">
+        <label class="check">
+          <input id="autolaunch" type="checkbox" />
+          <span>开机自动启动（常驻后台记录）</span>
+        </label>
+      </div>
+      <div class="row">
+        <div class="row-label">呼出快捷键</div>
+        <select id="shortcut" class="retention-select">
+          <option value="Control+Shift+V">Ctrl + Shift + V</option>
+          <option value="Control+Shift+X">Ctrl + Shift + X</option>
+          <option value="Alt+Shift+V">Alt + Shift + V</option>
+        </select>
+        <div class="row-hint">在任何软件里按此组合键，都能立刻呼出本窗口</div>
+      </div>
+      <div class="row">
+        <div class="row-label">已过期内容 <span id="expired-count" class="muted"></span></div>
+        <button id="clear-expired" class="danger-btn">立即清空</button>
+        <div class="row-hint">清空后无法恢复</div>
+      </div>
+      <div class="panel-foot">
+        历史粘贴板 v1.0 · 数据只保存在本机
+      </div>
+    </div>
+  </div>
+
+  <!-- 操作提示气泡 -->
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

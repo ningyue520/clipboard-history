@@ -1,0 +1,44 @@
+{
+  "name": "clipboard-history",
+  "productName": "历史粘贴板",
+  "version": "1.0.0",
+  "description": "自动记录并管理剪贴板历史（文字/图片），支持搜索、置顶、一键再粘贴",
+  "main": "main.js",
+  "author": "momo",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "icon": "node scripts/make-icon.js",
+    "dist": "electron-builder"
+  },
+  "dependencies": {
+    "tesseract.js": "^5.1.1"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.momo.clipboardhistory",
+    "productName": "历史粘贴板",
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*",
+      "assets/**/*"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "历史粘贴板"
+    }
+  }
+}

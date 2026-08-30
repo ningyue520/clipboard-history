@@ -1,0 +1,292 @@
+'use strict';
+
+const api = window.api;
+
+let state = { entries: [], settings: {}, expiredCount: 0 };
+let currentTab = 'active';
+let query = '';
+
+const $ = (sel) => document.querySelector(sel);
+const listEl = $('#list');
+const emptyEl = $('#empty');
+const emptyText = $('#empty-text');
+const searchEl = $('#search');
+const toastEl = $('#toast');
+
+// ---------------------------------------------------------------------------
+// 时间显示
+// ---------------------------------------------------------------------------
+function formatTime(ts) {
+  const d = new Date(ts);
+  const now = new Date();
+  const diff = now - d;
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return '刚刚';
+  if (min < 60) return min + ' 分钟前';
+  const hour = Math.floor(min / 60);
+  if (hour < 24 && d.getDate() === now.getDate()) return hour + ' 小时前';
+
+  const pad = (n) => String(n).padStart(2, '0');
+  const hm = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const y = d.getFullYear();
+  const md = `${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const ystr = now.getFullYear() !== y ? `${y}-` : '';
+  return `${ystr}${md} ${hm}`;
+}
+
+function dayLabel(ts) {
+  const d = new Date(ts);
+  const now = new Date();
+  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startD = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const dayDiff = Math.round((startToday - startD) / 86400000);
+  if (dayDiff === 0) return '今天';
+  if (dayDiff === 1) return '昨天';
+  if (dayDiff === 2) return '前天';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}年${pad(d.getMonth() + 1)}月${pad(d.getDate())}日`;
+}
+
+// ---------------------------------------------------------------------------
+// 渲染
+// ---------------------------------------------------------------------------
+function matches(e, q) {
+  if (!q) return true;
+  const hay = (e.text || '') + ' ' + (e.ocrText || '');
+  return hay.toLowerCase().includes(q.toLowerCase());
+}
+
+function visibleEntries() {
+  let list = state.entries;
+  if (currentTab === 'pinned') {
+    list = list.filter((e) => e.isPinned);
+  } else if (currentTab === 'expired') {
+    list = list.filter((e) => e.status === 'expired');
+  } else {
+    list = list.filter((e) => e.status === 'active');
+  }
+  list = list.filter((e) => matches(e, query));
+  return list.sort((a, b) =>
+    (Number(b.isPinned) - Number(a.isPinned)) || (b.createdAt - a.createdAt)
+  );
+}
+
+function esc(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function highlight(s, q) {
+  if (!q) return esc(s);
+  const i = s.toLowerCase().indexOf(q.toLowerCase());
+  if (i < 0) return esc(s);
+  const before = esc(s.slice(0, i));
+  const hit = esc(s.slice(i, i + q.length));
+  const after = esc(s.slice(i + q.length));
+  return `${before}<mark>${hit}</mark>${after}`;
+}
+
+function cardHtml(e) {
+  const time = formatTime(e.createdAt);
+  const typeBadge = e.type === 'image' ? '图片' : '文字';
+  const pinned = e.isPinned ? `<span class="pin-flag">📌 已置顶</span>` : '';
+
+  let body;
+  if (e.type === 'image') {
+    const ocr = e.ocrText ? `<div class="ocr-hint">图片内容：${esc(e.ocrText.slice(0, 80))}…</div>` : '';
+    body = `<img class="card-img" src="img://${e.imageFile}" alt="图片" />${ocr}`;
+  } else {
+    const text = highlight(e.text, query);
+    body = `<div class="card-body">${text}</div>`;
+  }
+
+  const actions = [];
+  actions.push(`<button class="btn primary" data-act="copy" title="复制到剪贴板">复制</button>`);
+  actions.push(`<button class="btn" data-act="paste" title="复制并直接粘贴到当前软件">立即粘贴</button>`);
+  if (e.status === 'active') {
+    actions.push(`<button class="btn ${e.isPinned ? 'pinned' : ''}" data-act="pin" title="${e.isPinned ? '取消置顶' : '置顶，永不过期'}">${e.isPinned ? '取消置顶' : '置顶'}</button>`);
+  }
+  actions.push(`<button class="btn danger" data-act="del" title="删除">删除</button>`);
+
+  const expiredCls = e.status === 'expired' ? ' expired' : '';
+  return `
+    <div class="card${expiredCls}" data-id="${e.id}">
+      <div class="card-meta">
+        <span class="time">${time}</span>
+        <span class="type-badge">${typeBadge}</span>
+        ${pinned}
+      </div>
+      ${body}
+      <div class="card-actions">${actions.join('')}</div>
+    </div>
+  `;
+}
+
+function render() {
+  const list = visibleEntries();
+  $('#expired-badge').hidden = !state.expiredCount;
+  $('#expired-badge').textContent = state.expiredCount;
+  $('#expired-count').textContent = state.expiredCount ? `（${state.expiredCount} 条）` : '';
+
+  if (list.length === 0) {
+    listEl.innerHTML = '';
+    emptyEl.hidden = false;
+    if (query) {
+      emptyText.textContent = '没有找到匹配的内容';
+      $('#empty-sub') && ($('#empty-sub').textContent = '换个关键词试试');
+    } else if (currentTab === 'pinned') {
+      emptyText.textContent = '还没有置顶的内容';
+      $('#empty-sub') && ($('#empty-sub').textContent = '点击卡片上的“置顶”按钮，重要的内容会一直留在这里');
+    } else if (currentTab === 'expired') {
+      emptyText.textContent = '已过期区是空的';
+      $('#empty-sub') && ($('#empty-sub').textContent = '超过保留期限的内容会移到这里');
+    } else {
+      emptyText.textContent = '还没有记录，复制点什么试试吧';
+      $('#empty-sub') && ($('#empty-sub').textContent = '复制文字或截图后，会自动出现在这里');
+    }
+    return;
+  }
+
+  emptyEl.hidden = true;
+
+  // 按天分组
+  let html = '';
+  let lastDay = '';
+  for (const e of list) {
+    const label = dayLabel(e.createdAt);
+    if (label !== lastDay) {
+      html += `<div class="day-divider">${label}</div>`;
+      lastDay = label;
+    }
+    html += cardHtml(e);
+  }
+  listEl.innerHTML = html;
+}
+
+// ---------------------------------------------------------------------------
+// 提示气泡
+// ---------------------------------------------------------------------------
+let toastTimer = null;
+function toast(msg) {
+  toastEl.textContent = msg;
+  toastEl.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toastEl.hidden = true; }, 1400);
+}
+
+// ---------------------------------------------------------------------------
+// 事件绑定
+// ---------------------------------------------------------------------------
+function bindEvents() {
+  // 标签页
+  document.querySelectorAll('.tab').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach((b) => b.classList.remove('on'));
+      btn.classList.add('on');
+      currentTab = btn.dataset.tab;
+      render();
+    });
+  });
+
+  // 搜索
+  searchEl.addEventListener('input', () => {
+    query = searchEl.value.trim();
+    $('#clear-search').hidden = !query;
+    render();
+  });
+  $('#clear-search').addEventListener('click', () => {
+    searchEl.value = '';
+    query = '';
+    $('#clear-search').hidden = true;
+    render();
+    searchEl.focus();
+  });
+
+  // 保留期限（顶部下拉 + 设置面板）
+  $('#retention').addEventListener('change', (e) => {
+    api.setSettings({ retentionDays: Number(e.target.value) });
+    toast(`保留期限已设为 ${e.target.value} 天`);
+  });
+  $('#seg-retention').addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    document.querySelectorAll('#seg-retention button').forEach((b) => b.classList.remove('on'));
+    btn.classList.add('on');
+    const days = Number(btn.dataset.days);
+    api.setSettings({ retentionDays: days });
+    $('#retention').value = String(days);
+    toast(`保留期限已设为 ${days} 天`);
+  });
+
+  // 设置面板开关
+  $('#settings-btn').addEventListener('click', () => $('#settings-overlay').hidden = false);
+  $('#settings-close').addEventListener('click', () => $('#settings-overlay').hidden = true);
+  $('#settings-overlay').addEventListener('click', (e) => {
+    if (e.target === $('#settings-overlay')) $('#settings-overlay').hidden = true;
+  });
+  $('#autolaunch').addEventListener('change', (e) => {
+    api.setSettings({ autoLaunch: e.target.checked });
+    toast(e.target.checked ? '已开启开机自启' : '已关闭开机自启');
+  });
+  $('#shortcut').addEventListener('change', (e) => {
+    api.setSettings({ shortcut: e.target.value });
+    toast('快捷键已更新');
+  });
+  $('#clear-expired').addEventListener('click', () => {
+    api.clearExpired();
+    toast('已清空过期内容');
+  });
+
+  // 卡片操作（事件委托）
+  listEl.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[data-act]');
+    if (!btn) return;
+    const card = btn.closest('.card');
+    const id = card.dataset.id;
+    const act = btn.dataset.act;
+
+    if (act === 'copy') {
+      const ok = await api.copyEntry(id);
+      if (ok) toast('已复制到剪贴板，去目标软件 Ctrl+V');
+      else toast('复制失败');
+    } else if (act === 'paste') {
+      await api.pasteEntry(id);
+      toast('已粘贴到上一个使用的软件');
+    } else if (act === 'pin') {
+      await api.togglePin(id);
+    } else if (act === 'del') {
+      await api.deleteEntry(id);
+    }
+  });
+
+  // 点击图片卡片也可复制
+  listEl.addEventListener('dblclick', async (e) => {
+    const card = e.target.closest('.card');
+    if (!card) return;
+    const ok = await api.copyEntry(card.dataset.id);
+    if (ok) toast('已复制到剪贴板');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// 初始化
+// ---------------------------------------------------------------------------
+async function init() {
+  state = await api.getState();
+  $('#retention').value = String(state.settings.retentionDays);
+  $('#autolaunch').checked = !!state.settings.autoLaunch;
+  $('#shortcut').value = state.settings.shortcut;
+  document.querySelectorAll('#seg-retention button').forEach((b) => {
+    b.classList.toggle('on', Number(b.dataset.days) === state.settings.retentionDays);
+  });
+
+  api.onUpdate((s) => { state = s; render(); });
+  api.onFocusSearch(() => {
+    if (!searchEl.value) searchEl.focus();
+  });
+
+  bindEvents();
+  render();
+}
+
+init();

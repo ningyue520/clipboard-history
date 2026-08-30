@@ -1,0 +1,522 @@
+'use strict';
+
+const {
+  app, BrowserWindow, Tray, Menu, globalShortcut,
+  clipboard, nativeImage, ipcMain, protocol, net,
+} = require('electron');
+const path = require('path');
+const fs = require('fs');
+const crypto = require('crypto');
+const { pathToFileURL } = require('url');
+const Tesseract = require('tesseract.js');
+const { exec } = require('child_process');
+
+const APP_ID = 'com.momo.clipboardhistory';
+app.setAppUserModelId(APP_ID);
+
+// ---------------------------------------------------------------------------
+// 数据位置：系统用户数据目录（%APPDATA%/历史粘贴板）
+// ---------------------------------------------------------------------------
+const dataDir = app.getPath('userData');
+const settingsPath = path.join(dataDir, 'settings.json');
+const entriesPath = path.join(dataDir, 'entries.json');
+const imagesDir = path.join(dataDir, 'images');
+
+const DEFAULT_SETTINGS = {
+  retentionDays: 3,          // 1 / 3 / 5
+  autoLaunch: true,
+  shortcut: 'Control+Shift+V',
+};
+
+let settings = { ...DEFAULT_SETTINGS };
+let entries = [];
+let win = null;
+let tray = null;
+let pollTimer = null;
+let expireTimer = null;
+
+// 记录上一次剪贴板内容，用于去重
+let lastFormats = '';
+let lastText = '';
+let lastKey = '';
+// 我们自己写入剪贴板后，短暂抑制自动记录，避免产生重复条目
+let suppressUntil = 0;
+
+// ---------------------------------------------------------------------------
+// 设置
+// ---------------------------------------------------------------------------
+function loadSettings() {
+  try {
+    const data = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+    settings = { ...DEFAULT_SETTINGS, ...data };
+  } catch (e) { /* 使用默认值 */ }
+  if (![1, 3, 5].includes(settings.retentionDays)) settings.retentionDays = DEFAULT_SETTINGS.retentionDays;
+  saveSettings();
+}
+
+function saveSettings() {
+  fs.mkdirSync(dataDir, { recursive: true });
+  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+}
+
+// ---------------------------------------------------------------------------
+// 数据存取
+// ---------------------------------------------------------------------------
+function loadEntries() {
+  try {
+    entries = JSON.parse(fs.readFileSync(entriesPath, 'utf8'));
+    if (!Array.isArray(entries)) entries = [];
+  } catch (e) { entries = []; }
+}
+
+function saveEntries() {
+  fs.mkdirSync(dataDir, { recursive: true });
+  fs.writeFileSync(entriesPath, JSON.stringify(entries, null, 2));
+}
+
+function ensureImageDir() {
+  fs.mkdirSync(imagesDir, { recursive: true });
+}
+
+function getPayload() {
+  return {
+    entries,
+    settings,
+    expiredCount: entries.filter((e) => e.status === 'expired').length,
+  };
+}
+
+function sendUpdate() {
+  if (win && !win.isDestroyed()) {
+    win.webContents.send('entries-updated', getPayload());
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 窗口
+// ---------------------------------------------------------------------------
+function createWindow() {
+  win = new BrowserWindow({
+    width: 920,
+    height: 720,
+    minWidth: 640,
+    minHeight: 480,
+    show: false,
+    titleBarStyle: 'hidden',
+    titleBarOverlay: {
+      color: '#00000000',
+      symbolColor: '#666666',
+      height: 44,
+    },
+    backgroundColor: '#00000000',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      backgroundThrottling: false,
+    },
+  });
+
+  // Win11 亚克力毛玻璃背景
+  if (process.platform === 'win32' && typeof win.setBackgroundMaterial === 'function') {
+    try { win.setBackgroundMaterial('acrylic'); } catch (e) { /* 忽略 */ }
+  }
+
+  win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+  win.once('ready-to-show', () => {
+    restoreBounds();
+    win.show();
+  });
+
+  // 关闭 = 隐藏到托盘，不退出
+  win.on('close', (e) => {
+    if (!app.isQuiting) {
+      e.preventDefault();
+      win.hide();
+    }
+  });
+
+  // 记住窗口位置和大小（支持自由移动）
+  win.on('move', () => setTimeout(saveBounds, 300));
+  win.on('resize', () => setTimeout(saveBounds, 300));
+
+  win.setIcon(path.join(__dirname, 'assets', 'icon.png'));
+}
+
+function boundsPath() {
+  return path.join(dataDir, 'window.json');
+}
+
+function saveBounds() {
+  if (!win || win.isDestroyed() || win.isMinimized()) return;
+  const b = win.getBounds();
+  fs.writeFileSync(boundsPath(), JSON.stringify(b));
+}
+
+function restoreBounds() {
+  try {
+    const b = JSON.parse(fs.readFileSync(boundsPath(), 'utf8'));
+    if (b && b.width && b.height) {
+      // 防止窗口被拖到屏幕外
+      win.setBounds(b);
+    }
+  } catch (e) { /* 使用默认大小 */ }
+}
+
+function showWindow() {
+  if (!win) return;
+  processExpirations();
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
+  if (!win.isDestroyed()) win.webContents.send('focus-search');
+}
+
+// ---------------------------------------------------------------------------
+// 托盘
+// ---------------------------------------------------------------------------
+function createTray() {
+  const icon = nativeImage.createFromPath(path.join(__dirname, 'assets', 'icon.png'));
+  tray = new Tray(icon.resize({ width: 16, height: 16 }));
+  tray.setToolTip('历史粘贴板');
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: '打开历史粘贴板', click: () => showWindow() },
+    { type: 'separator' },
+    { label: '退出', click: () => { app.isQuiting = true; app.quit(); } },
+  ]));
+  tray.on('click', () => showWindow());
+}
+
+// ---------------------------------------------------------------------------
+// 全局快捷键
+// ---------------------------------------------------------------------------
+function registerShortcut() {
+  try { globalShortcut.unregisterAll(); } catch (e) { /* 忽略 */ }
+  try {
+    const ok = globalShortcut.register(settings.shortcut, () => showWindow());
+    console.log(`[快捷键] ${settings.shortcut} 注册${ok ? '成功' : '失败'}`);
+  } catch (e) {
+    console.error('[快捷键] 注册失败', e);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 剪贴板监控
+// ---------------------------------------------------------------------------
+function pollClipboard() {
+  let formats;
+  let text;
+  try {
+    formats = clipboard.availableFormats().join(',');
+    text = clipboard.readText();
+  } catch (e) {
+    return;
+  }
+
+  const formatsChanged = formats !== lastFormats;
+  const textChanged = text !== lastText;
+
+  if (!formatsChanged && !textChanged) return;
+
+  lastFormats = formats;
+  lastText = text;
+
+  if (Date.now() < suppressUntil) return; // 我们刚自己写过剪贴板
+
+  if (text.trim()) {
+    addTextEntry(text.trim());
+  } else if (formats.includes('image')) {
+    let img;
+    try { img = clipboard.readImage(); } catch (e) { return; }
+    if (img.isEmpty()) return;
+    const png = img.toPNG();
+    const key = 'img:' + crypto.createHash('sha256').update(png).digest('hex');
+    if (key === lastKey) return;
+    lastKey = key;
+    addImageEntry(img, png);
+  } else {
+    lastKey = '';
+  }
+}
+
+function addTextEntry(text) {
+  // 去重：内容与现有活动条目相同则不重复记录
+  if (entries.some((e) => e.type === 'text' && e.status === 'active' && e.text === text)) {
+    return;
+  }
+  const entry = {
+    id: crypto.randomUUID(),
+    type: 'text',
+    text,
+    ocrText: '',
+    imageFile: null,
+    createdAt: Date.now(),
+    isPinned: false,
+    status: 'active',
+  };
+  entries.unshift(entry);
+  capEntries();
+  saveEntries();
+  sendUpdate();
+}
+
+function addImageEntry(img, png) {
+  const id = crypto.randomUUID();
+  const file = id + '.png';
+  fs.writeFileSync(path.join(imagesDir, file), png);
+  const entry = {
+    id,
+    type: 'image',
+    text: '',
+    ocrText: '',
+    imageFile: file,
+    createdAt: Date.now(),
+    isPinned: false,
+    status: 'active',
+  };
+  entries.unshift(entry);
+  capEntries();
+  saveEntries();
+  sendUpdate();
+  runOcr(entry);
+}
+
+// 限制条目总数，避免软件越来越慢（置顶条目优先保留）
+function capEntries() {
+  const MAX = 1000;
+  if (entries.length <= MAX) return;
+  const removable = entries
+    .filter((e) => !e.isPinned)
+    .sort((a, b) => a.createdAt - b.createdAt);
+  for (const e of removable) {
+    if (entries.length <= MAX) break;
+    const idx = entries.indexOf(e);
+    if (idx >= 0) {
+      entries.splice(idx, 1);
+      removeImageFile(e);
+    }
+  }
+}
+
+function removeImageFile(e) {
+  if (e.imageFile) {
+    try { fs.unlinkSync(path.join(imagesDir, e.imageFile)); } catch (err) { /* 忽略 */ }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// OCR：图片文字识别（供搜索）
+// ---------------------------------------------------------------------------
+let ocrWorker = null;
+let ocrQueue = Promise.resolve();
+
+async function getOcrWorker() {
+  if (ocrWorker) return ocrWorker;
+  ocrWorker = await Tesseract.createWorker(['chi_sim', 'eng'], 1, {
+    logger: (m) => { /* 静默 */ },
+  });
+  return ocrWorker;
+}
+
+function runOcr(entry) {
+  ocrQueue = ocrQueue.then(async () => {
+    try {
+      const worker = await getOcrWorker();
+      const file = path.join(imagesDir, entry.imageFile);
+      if (!fs.existsSync(file)) return;
+      const { data } = await worker.recognize(fs.readFileSync(file));
+      if (data && data.text && data.text.trim()) {
+        entry.ocrText = data.text.trim().slice(0, 2000);
+        saveEntries();
+        sendUpdate();
+      }
+    } catch (e) {
+      console.error('[OCR] 失败', e.message);
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// 过期处理
+// ---------------------------------------------------------------------------
+function processExpirations() {
+  const cutoff = Date.now() - settings.retentionDays * 24 * 60 * 60 * 1000;
+  let changed = false;
+  for (const e of entries) {
+    if (e.status === 'active' && !e.isPinned && e.createdAt < cutoff) {
+      e.status = 'expired';
+      changed = true;
+    }
+  }
+  if (changed) {
+    saveEntries();
+    sendUpdate();
+  }
+}
+
+function clearExpired() {
+  const before = entries.length;
+  entries = entries.filter((e) => {
+    if (e.status === 'expired') {
+      removeImageFile(e);
+      return false;
+    }
+    return true;
+  });
+  if (entries.length !== before) {
+    saveEntries();
+    sendUpdate();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 复制 / 一键粘贴
+// ---------------------------------------------------------------------------
+function writeEntryToClipboard(e) {
+  suppressUntil = Date.now() + 1500;
+  if (e.type === 'text') {
+    clipboard.writeText(e.text);
+  } else {
+    const file = path.join(imagesDir, e.imageFile);
+    if (!fs.existsSync(file)) return false;
+    clipboard.writeImage(nativeImage.createFromBuffer(fs.readFileSync(file)));
+  }
+  return true;
+}
+
+function pasteEntryToFrontApp(e) {
+  if (!writeEntryToClipboard(e)) return;
+  if (win && !win.isDestroyed()) win.hide();
+  // 等窗口隐藏、焦点回到原软件后，模拟 Ctrl+V
+  setTimeout(() => {
+    const cmd =
+      'powershell -NoProfile -WindowStyle Hidden -Command ' +
+      '"$wshell = New-Object -ComObject wscript.shell; $wshell.SendKeys(\'^v\')"';
+    exec(cmd, { windowsHide: true }, (err) => {
+      if (err) console.error('[粘贴] 失败', err);
+    });
+  }, 300);
+}
+
+// ---------------------------------------------------------------------------
+// 开机自启
+// ---------------------------------------------------------------------------
+function applyAutoLaunch() {
+  if (!settings.autoLaunch) {
+    app.setLoginItemSettings({ openAtLogin: false });
+    return;
+  }
+  if (app.isPackaged) {
+    app.setLoginItemSettings({ openAtLogin: true });
+  } else {
+    // 开发模式下启动 electron.exe 并带上项目路径
+    app.setLoginItemSettings({
+      openAtLogin: true,
+      path: process.execPath,
+      args: [app.getAppPath()],
+    });
+  }
+}
+
+function applySettings(partial) {
+  settings = { ...settings, ...partial };
+  saveSettings();
+  if ('retentionDays' in partial) processExpirations();
+  if ('shortcut' in partial) registerShortcut();
+  if ('autoLaunch' in partial) applyAutoLaunch();
+  sendUpdate();
+}
+
+// ---------------------------------------------------------------------------
+// 图片本地协议：让界面能显示图片卡片的缩略图
+// ---------------------------------------------------------------------------
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'img',
+    privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true },
+  },
+]);
+
+function registerImageProtocol() {
+  protocol.handle('img', (req) => {
+    try {
+      const u = new URL(req.url);
+      const file = path.join(imagesDir, u.hostname);
+      if (!file.startsWith(imagesDir) || !fs.existsSync(file)) {
+        return new Response('', { status: 404 });
+      }
+      return net.fetch(pathToFileURL(file).toString());
+    } catch (e) {
+      return new Response('', { status: 500 });
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// IPC
+// ---------------------------------------------------------------------------
+ipcMain.handle('get-state', () => getPayload());
+ipcMain.handle('set-settings', (_evt, partial) => applySettings(partial));
+ipcMain.handle('toggle-pin', (_evt, id) => {
+  const e = entries.find((x) => x.id === id);
+  if (e) {
+    e.isPinned = !e.isPinned;
+    saveEntries();
+    sendUpdate();
+  }
+  return getPayload();
+});
+ipcMain.handle('delete-entry', (_evt, id) => {
+  const idx = entries.findIndex((x) => x.id === id);
+  if (idx >= 0) {
+    removeImageFile(entries[idx]);
+    entries.splice(idx, 1);
+    saveEntries();
+    sendUpdate();
+  }
+  return getPayload();
+});
+ipcMain.handle('clear-expired', () => {
+  clearExpired();
+  return getPayload();
+});
+ipcMain.handle('copy-entry', (_evt, id) => {
+  const e = entries.find((x) => x.id === id);
+  return e ? writeEntryToClipboard(e) : false;
+});
+ipcMain.handle('paste-entry', (_evt, id) => {
+  const e = entries.find((x) => x.id === id);
+  if (!e) return false;
+  pasteEntryToFrontApp(e);
+  return true;
+});
+
+// ---------------------------------------------------------------------------
+// 生命周期
+// ---------------------------------------------------------------------------
+app.whenReady().then(() => {
+  ensureImageDir();
+  loadSettings();
+  loadEntries();
+  registerImageProtocol();
+  createWindow();
+  createTray();
+  registerShortcut();
+  applyAutoLaunch();
+  processExpirations();
+  pollTimer = setInterval(pollClipboard, 800);
+  expireTimer = setInterval(processExpirations, 30 * 60 * 1000);
+
+  app.on('activate', () => showWindow());
+});
+
+app.on('before-quit', () => {
+  app.isQuiting = true;
+  if (pollTimer) clearInterval(pollTimer);
+  if (expireTimer) clearInterval(expireTimer);
+  saveBounds();
+});
+
+app.on('window-all-closed', () => {
+  // 常驻托盘，不退出
+});
