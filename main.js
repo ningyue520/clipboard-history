@@ -314,6 +314,8 @@ let ocrQueue = Promise.resolve();
 async function getOcrWorker() {
   if (ocrWorker) return ocrWorker;
   ocrWorker = await Tesseract.createWorker(['chi_sim', 'eng'], 1, {
+    langPath: path.join(__dirname),
+    gzip: false,
     logger: (m) => { /* 静默 */ },
   });
   return ocrWorker;
