@@ -15,10 +15,17 @@
       <input id="search" type="text" placeholder="搜索历史记录..." autocomplete="off" spellcheck="false" />
       <span id="clear-search" class="clear-search" hidden>&times;</span>
     </div>
+    <button id="minimize-btn" class="icon-btn" title="最小化">&#8212;</button>
     <button id="settings-btn" class="icon-btn" title="设置">⚙</button>
   </header>
 
   <!-- 标签页 -->
+  <nav class="tabs">
+    <button class="tab on" data-tab="active">全部</button>
+    <button class="tab" data-tab="pinned">置顶</button>
+    <button class="tab" data-tab="expired">已过期<span id="expired-badge" class="badge" hidden>0</span></button>
+  </nav>
+
   <!-- 卡片列表 -->
   <main id="list"></main>
 

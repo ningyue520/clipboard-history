@@ -495,6 +495,9 @@ ipcMain.handle('paste-entry', (_evt, id) => {
   pasteEntryToFrontApp(e);
   return true;
 });
+ipcMain.on('minimize-window', () => {
+  if (win && !win.isDestroyed()) win.minimize();
+});
 
 // ---------------------------------------------------------------------------
 // 生命周期

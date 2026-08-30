@@ -126,6 +126,9 @@ function cardHtml(e) {
 function render() {
   const list = visibleEntries();
   $('#expired-count').textContent = state.expiredCount ? `（${state.expiredCount} 条）` : '';
+  const badge = $('#expired-badge');
+  badge.hidden = !state.expiredCount;
+  badge.textContent = state.expiredCount;
 
   if (list.length === 0) {
     listEl.innerHTML = '';
@@ -185,6 +188,9 @@ function toast(msg) {
 // 事件绑定
 // ---------------------------------------------------------------------------
 function bindEvents() {
+  // 窗口控制
+  $('#minimize-btn').addEventListener('click', () => api.minimizeWindow());
+
   // 标签页
   document.querySelectorAll('.tab').forEach((btn) => {
     btn.addEventListener('click', () => {

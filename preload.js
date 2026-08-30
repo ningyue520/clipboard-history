@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('api', {
   clearExpired: () => ipcRenderer.invoke('clear-expired'),
   copyEntry: (id) => ipcRenderer.invoke('copy-entry', id),
   pasteEntry: (id) => ipcRenderer.invoke('paste-entry', id),
+  minimizeWindow: () => ipcRenderer.send('minimize-window'),
   pauseShortcutCapture: () => ipcRenderer.send('shortcut-capture-start'),
   resumeShortcutCapture: () => ipcRenderer.send('shortcut-capture-end'),
 
