@@ -562,6 +562,11 @@ app.whenReady().then(() => {
   registerShortcut();
   applyAutoLaunch();
   processExpirations();
+  // 记录启动时的剪贴板基线，已有内容不计入历史，只记录启动后的新复制
+  try {
+    lastFormats = clipboard.availableFormats().join(',');
+    lastText = clipboard.readText();
+  } catch (e) { /* 使用默认空基线 */ }
   pollTimer = setInterval(pollClipboard, 800);
   expireTimer = setInterval(processExpirations, 30 * 60 * 1000);
 
