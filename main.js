@@ -2,14 +2,13 @@
 
 const {
   app, BrowserWindow, Tray, Menu, globalShortcut,
-  clipboard, nativeImage, ipcMain, protocol, net,
+  clipboard, nativeImage, ipcMain, protocol, net, screen,
 } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { pathToFileURL } = require('url');
 const Tesseract = require('tesseract.js');
-const { exec } = require('child_process');
 
 const APP_ID = 'com.momo.clipboardhistory';
 app.setAppUserModelId(APP_ID);
@@ -18,8 +17,14 @@ const gotSingleInstanceLock = app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {
   app.quit();
 } else {
-  app.on('second-instance', () => showWindow());
+  app.on('second-instance', () => {
+    if (!app.isQuiting) showWindow();
+  });
 }
+
+process.on('uncaughtException', (err) => {
+  console.error('[uncaught]', err);
+});
 
 // ---------------------------------------------------------------------------
 // 数据位置：系统用户数据目录（%APPDATA%/历史粘贴板）
@@ -32,6 +37,7 @@ const imagesDir = path.join(dataDir, 'images');
 const DEFAULT_SETTINGS = {
   retentionDays: 3,          // 1 / 3 / 5
   autoLaunch: true,
+  closeToTray: false,
   shortcut: 'Control+Alt+H',
 };
 
@@ -75,6 +81,15 @@ function loadEntries() {
     entries = JSON.parse(fs.readFileSync(entriesPath, 'utf8'));
     if (!Array.isArray(entries)) entries = [];
   } catch (e) { entries = []; }
+  let migrated = false;
+  for (const e of entries) {
+    if (e.isPinned) {
+      e.isFavorite = true;
+      delete e.isPinned;
+      migrated = true;
+    }
+  }
+  if (migrated) saveEntries();
 }
 
 function saveEntries() {
@@ -130,11 +145,15 @@ function createWindow() {
     win.show();
   });
 
-  // 关闭 = 隐藏到托盘，不退出
+  // 关闭行为：默认直接退出，开启 closeToTray 后隐藏到托盘
   win.on('close', (e) => {
-    if (!app.isQuiting) {
+    if (app.isQuiting) return;
+    if (settings.closeToTray) {
       e.preventDefault();
       win.hide();
+    } else {
+      app.isQuiting = true;
+      app.quit();
     }
   });
 
@@ -170,7 +189,44 @@ function showWindow() {
   if (win.isMinimized()) win.restore();
   win.show();
   win.focus();
-  if (!win.isDestroyed()) win.webContents.send('focus-search');
+  if (!win.isDestroyed()) {
+    win.webContents.send('focus-search');
+    win.webContents.send('window-shown');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 图片独立预览窗口
+// ---------------------------------------------------------------------------
+let previewWin = null;
+
+function showImagePreview(imageFile) {
+  if (typeof imageFile !== 'string' || !imageFile) return;
+  if (imageFile.includes('/') || imageFile.includes('\\') || imageFile.includes('..')) return;
+  const file = path.join(imagesDir, imageFile);
+  if (!fs.existsSync(file)) return;
+  if (previewWin && !previewWin.isDestroyed()) {
+    previewWin.focus();
+    return;
+  }
+  const { workArea } = screen.getPrimaryDisplay();
+  previewWin = new BrowserWindow({
+    width: Math.min(workArea.width - 80, 1280),
+    height: Math.min(workArea.height - 80, 960),
+    minWidth: 400,
+    minHeight: 300,
+    title: '图片预览',
+    backgroundColor: '#101012',
+    autoHideMenuBar: true,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  previewWin.loadFile(path.join(__dirname, 'renderer', 'preview.html'), {
+    query: { file: imageFile },
+  });
+  previewWin.on('closed', () => { previewWin = null; });
 }
 
 // ---------------------------------------------------------------------------
@@ -252,7 +308,7 @@ function addTextEntry(text) {
     ocrText: '',
     imageFile: null,
     createdAt: Date.now(),
-    isPinned: false,
+    isFavorite: false,
     status: 'active',
   };
   entries.unshift(entry);
@@ -272,7 +328,7 @@ function addImageEntry(img, png) {
     ocrText: '',
     imageFile: file,
     createdAt: Date.now(),
-    isPinned: false,
+    isFavorite: false,
     status: 'active',
   };
   entries.unshift(entry);
@@ -282,12 +338,12 @@ function addImageEntry(img, png) {
   runOcr(entry);
 }
 
-// 限制条目总数，避免软件越来越慢（置顶条目优先保留）
+// 限制条目总数，避免软件越来越慢（收藏条目优先保留）
 function capEntries() {
   const MAX = 1000;
   if (entries.length <= MAX) return;
   const removable = entries
-    .filter((e) => !e.isPinned)
+    .filter((e) => !e.isFavorite)
     .sort((a, b) => a.createdAt - b.createdAt);
   for (const e of removable) {
     if (entries.length <= MAX) break;
@@ -351,7 +407,7 @@ function processExpirations() {
   const cutoff = Date.now() - settings.retentionDays * 24 * 60 * 60 * 1000;
   let changed = false;
   for (const e of entries) {
-    if (e.status === 'active' && !e.isPinned && e.createdAt < cutoff) {
+    if (e.status === 'active' && !e.isFavorite && e.createdAt < cutoff) {
       e.status = 'expired';
       changed = true;
     }
@@ -390,20 +446,6 @@ function writeEntryToClipboard(e) {
     clipboard.writeImage(nativeImage.createFromBuffer(fs.readFileSync(file)));
   }
   return true;
-}
-
-function pasteEntryToFrontApp(e) {
-  if (!writeEntryToClipboard(e)) return;
-  if (win && !win.isDestroyed()) win.hide();
-  // 等窗口隐藏、焦点回到原软件后，模拟 Ctrl+V
-  setTimeout(() => {
-    const cmd =
-      'powershell -NoProfile -WindowStyle Hidden -Command ' +
-      '"$wshell = New-Object -ComObject wscript.shell; $wshell.SendKeys(\'^v\')"';
-    exec(cmd, { windowsHide: true }, (err) => {
-      if (err) console.error('[粘贴] 失败', err);
-    });
-  }, 300);
 }
 
 // ---------------------------------------------------------------------------
@@ -465,10 +507,10 @@ function registerImageProtocol() {
 // ---------------------------------------------------------------------------
 ipcMain.handle('get-state', () => getPayload());
 ipcMain.handle('set-settings', (_evt, partial) => applySettings(partial));
-ipcMain.handle('toggle-pin', (_evt, id) => {
+ipcMain.handle('toggle-favorite', (_evt, id) => {
   const e = entries.find((x) => x.id === id);
   if (e) {
-    e.isPinned = !e.isPinned;
+    e.isFavorite = !e.isFavorite;
     saveEntries();
     sendUpdate();
   }
@@ -496,14 +538,15 @@ ipcMain.on('shortcut-capture-start', () => {
   try { globalShortcut.unregister(settings.shortcut); } catch (e) { /* ignore */ }
 });
 ipcMain.on('shortcut-capture-end', () => registerShortcut());
-ipcMain.handle('paste-entry', (_evt, id) => {
-  const e = entries.find((x) => x.id === id);
-  if (!e) return false;
-  pasteEntryToFrontApp(e);
+ipcMain.handle('preview-image', (_evt, file) => {
+  showImagePreview(file);
   return true;
 });
 ipcMain.on('minimize-window', () => {
   if (win && !win.isDestroyed()) win.minimize();
+});
+ipcMain.on('close-window', () => {
+  if (win && !win.isDestroyed()) win.close();
 });
 
 // ---------------------------------------------------------------------------

@@ -2,41 +2,39 @@
 
 > Updated: 2026-08-30
 > Repo: https://github.com/ningyue520/clipboard-history (private)
-> Branch: main, Tag: v1.0, Latest: b10cf01
+> Branch: main, Tags: v1.0, v1.1
 
 ## Current Status
 
-- v1.0 is complete, tagged, and pushed. Working tree is clean.
-- Verified end-to-end: text/image capture, card rendering, search, pin, delete, copy, paste, retention switching, settings panel, tray, global shortcut recording + invocation, offline OCR, minimize, tab navigation.
-- NSIS installer rebuilt at dist/历史粘贴板 Setup 1.0.0.exe with all fixes and unpacked traineddata.
+- v1.1 complete: close button, light motion + frosted glass, closable close behavior, standalone image preview, favorites replace pin, paste removed.
+- Installer: `dist/v1.1/历史粘贴板 Setup 1.1.0.exe`; v1.0 installer kept in `dist/`.
 
-## Fixed in v1.0
+## v1.1 Features
 
-- Renderer crash "Identifier api has already been declared": contextBridge exposes a non-configurable window.api; app.js now wraps its body in an IIFE.
-- Letter-key shortcut recording produced invalid accelerators ("Control+Alt+KeyJ"); normalized to Electron format ("Control+Alt+J").
-- showWindow() crashed the main process after window destruction; guarded with isDestroyed().
-- Packaged-build OCR crashed with "Only absolute URLs are supported" (tesseract.js mis-detects Electron env as non-node); language data now loads via cachePath pointing to asarUnpacked files.
+1. Titlebar close button (`close-window` IPC); close behavior selectable in settings: exit (default) or minimize-to-tray (`closeToTray`, default false).
+2. Light motion: card entrance stagger, button press feedback, panel pop, window show fade; frosted glass search/tabs/panel with readable solid cards.
+3. Image preview: standalone window (~80% work area), image fully fit; wheel zoom 1-8x centered on cursor, drag pan, click anywhere to shrink-to-fit, click again to close; ESC closes.
+4. Favorites replace pin: `isFavorite` (auto-migrated from `isPinned` on load), favorites never expire, hidden from "all" tab, favorite tab filter, star badge.
+5. Removed "paste now" (paste-entry IPC chain deleted).
 
-## Known Issues / Debt
+## v1.1 Fixes
 
-1. Shortcut registration failure is silent (console only); no UI feedback.
-2. restoreBounds() does not validate monitor bounds; multi-monitor unplug can restore off-screen.
-3. Image dedupe compares only the last clipboard key; alternating content can duplicate entries.
-4. window.close() (hide-to-tray) detaches the CDP target permanently; automated UI verification needs an app restart afterwards.
+- second-instance crash during quit: guarded with `app.isQuiting`; global `uncaughtException` logs instead of dialog.
 
-## Suggested Next Steps for v1.1
+## IPC Surface
 
-1. Surface shortcut registration failures in the settings UI (add shortcutOk to getPayload).
-2. Strengthen dedupe with per-entry key sets.
-3. Validate restoreBounds against the visible display area.
-4. Optional: GitHub Release workflow that uploads the NSIS installer for v1.x tags.
+- invoke: get-state, set-settings, toggle-favorite, delete-entry, clear-expired, copy-entry, preview-image
+- one-way: shortcut-capture-start, shortcut-capture-end, minimize-window, close-window
+- renderer events: entries-updated, focus-search, window-shown
 
 ## Packaging
 
-Use the mirror and the no-sign flag that already worked on this machine:
-
+```
 ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/
 npx electron-builder --config.win.signAndEditExecutable=false
+```
+
+Copy the new exe into `dist/v1.1/`; keep v1.0 exe untouched.
 
 ## Runtime Data
 

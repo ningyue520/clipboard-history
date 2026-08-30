@@ -59,16 +59,16 @@ function matches(e, q) {
 
 function visibleEntries() {
   let list = state.entries;
-  if (currentTab === 'pinned') {
-    list = list.filter((e) => e.isPinned);
+  if (currentTab === 'favorite') {
+    list = list.filter((e) => e.isFavorite);
   } else if (currentTab === 'expired') {
     list = list.filter((e) => e.status === 'expired');
   } else {
-    list = list.filter((e) => e.status === 'active');
+    list = list.filter((e) => e.status === 'active' && !e.isFavorite);
   }
   list = list.filter((e) => matches(e, query));
   return list.sort((a, b) =>
-    (Number(b.isPinned) - Number(a.isPinned)) || (b.createdAt - a.createdAt)
+    (Number(b.isFavorite) - Number(a.isFavorite)) || (b.createdAt - a.createdAt)
   );
 }
 
@@ -90,12 +90,12 @@ function highlight(s, q) {
 function cardHtml(e) {
   const time = formatTime(e.createdAt);
   const typeBadge = e.type === 'image' ? '图片' : '文字';
-  const pinned = e.isPinned ? `<span class="pin-flag">📌 已置顶</span>` : '';
+  const fav = e.isFavorite ? `<span class="fav-flag">⭐ 已收藏</span>` : '';
 
   let body;
   if (e.type === 'image') {
     const ocr = e.ocrText ? `<div class="ocr-hint">图片内容：${esc(e.ocrText.slice(0, 80))}…</div>` : '';
-    body = `<img class="card-img" src="img://${e.imageFile}" alt="图片" />${ocr}`;
+    body = `<img class="card-img" src="img://${e.imageFile}" data-file="${e.imageFile}" alt="图片" />${ocr}`;
   } else {
     const text = highlight(e.text, query);
     body = `<div class="card-body">${text}</div>`;
@@ -103,9 +103,8 @@ function cardHtml(e) {
 
   const actions = [];
   actions.push(`<button class="btn primary" data-act="copy" title="复制到剪贴板">复制</button>`);
-  actions.push(`<button class="btn" data-act="paste" title="复制并直接粘贴到当前软件">立即粘贴</button>`);
   if (e.status === 'active') {
-    actions.push(`<button class="btn ${e.isPinned ? 'pinned' : ''}" data-act="pin" title="${e.isPinned ? '取消置顶' : '置顶，永不过期'}">${e.isPinned ? '取消置顶' : '置顶'}</button>`);
+    actions.push(`<button class="btn ${e.isFavorite ? 'fav' : ''}" data-act="fav" title="${e.isFavorite ? '取消收藏' : '收藏，永不过期'}">${e.isFavorite ? '取消收藏' : '收藏'}</button>`);
   }
   actions.push(`<button class="btn danger" data-act="del" title="删除">删除</button>`);
 
@@ -115,7 +114,7 @@ function cardHtml(e) {
       <div class="card-meta">
         <span class="time">${time}</span>
         <span class="type-badge">${typeBadge}</span>
-        ${pinned}
+        ${fav}
       </div>
       ${body}
       <div class="card-actions">${actions.join('')}</div>
@@ -136,9 +135,9 @@ function render() {
     if (query) {
       emptyText.textContent = '没有找到匹配的内容';
       $('#empty-sub') && ($('#empty-sub').textContent = '换个关键词试试');
-    } else if (currentTab === 'pinned') {
-      emptyText.textContent = '还没有置顶的内容';
-      $('#empty-sub') && ($('#empty-sub').textContent = '点击卡片上的“置顶”按钮，重要的内容会一直留在这里');
+    } else if (currentTab === 'favorite') {
+      emptyText.textContent = '还没有收藏的内容';
+      $('#empty-sub') && ($('#empty-sub').textContent = '点击卡片上的“收藏”按钮，经常使用的内容会一直留在这里');
     } else if (currentTab === 'expired') {
       emptyText.textContent = '已过期区是空的';
       $('#empty-sub') && ($('#empty-sub').textContent = '超过保留期限的内容会移到这里');
@@ -163,6 +162,9 @@ function render() {
     html += cardHtml(e);
   }
   listEl.innerHTML = html;
+  listEl.querySelectorAll('.card').forEach((el, i) => {
+    el.style.animationDelay = Math.min(i * 25, 300) + 'ms';
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -172,6 +174,9 @@ let toastTimer = null;
 function syncSettingsUI(s) {
   document.querySelectorAll('#seg-retention button').forEach((b) => {
     b.classList.toggle('on', Number(b.dataset.days) === s.settings.retentionDays);
+  });
+  document.querySelectorAll('#seg-close button').forEach((b) => {
+    b.classList.toggle('on', (b.dataset.close === 'tray') === !!s.settings.closeToTray);
   });
   $('#autolaunch').checked = !!s.settings.autoLaunch;
   $('#shortcut').value = s.settings.shortcut;
@@ -190,6 +195,7 @@ function toast(msg) {
 function bindEvents() {
   // 窗口控制
   $('#minimize-btn').addEventListener('click', () => api.minimizeWindow());
+  $('#close-btn').addEventListener('click', () => api.closeWindow());
 
   // 标签页
   document.querySelectorAll('.tab').forEach((btn) => {
@@ -235,6 +241,13 @@ function bindEvents() {
     api.setSettings({ autoLaunch: e.target.checked });
     toast(e.target.checked ? '已开启开机自启' : '已关闭开机自启');
   });
+  $('#seg-close').addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    const closeToTray = btn.dataset.close === 'tray';
+    api.setSettings({ closeToTray });
+    toast(closeToTray ? '关闭窗口将最小化到托盘' : '关闭窗口将直接退出程序');
+  });
   const shortcutEl = $('#shortcut');
   shortcutEl.addEventListener('focus', () => api.pauseShortcutCapture());
   shortcutEl.addEventListener('blur', () => api.resumeShortcutCapture());
@@ -278,7 +291,11 @@ function bindEvents() {
   // 卡片操作（事件委托）
   listEl.addEventListener('click', async (e) => {
     const btn = e.target.closest('button[data-act]');
-    if (!btn) return;
+    if (!btn) {
+      const img = e.target.closest('.card-img');
+      if (img && img.dataset.file) api.previewImage(img.dataset.file);
+      return;
+    }
     const card = btn.closest('.card');
     const id = card.dataset.id;
     const act = btn.dataset.act;
@@ -287,11 +304,8 @@ function bindEvents() {
       const ok = await api.copyEntry(id);
       if (ok) toast('已复制到剪贴板，去目标软件 Ctrl+V');
       else toast('复制失败');
-    } else if (act === 'paste') {
-      await api.pasteEntry(id);
-      toast('已粘贴到上一个使用的软件');
-    } else if (act === 'pin') {
-      await api.togglePin(id);
+    } else if (act === 'fav') {
+      await api.toggleFavorite(id);
     } else if (act === 'del') {
       await api.deleteEntry(id);
     }
@@ -321,6 +335,11 @@ async function init() {
   api.onUpdate((s) => { state = s; syncSettingsUI(s); render(); });
   api.onFocusSearch(() => {
     if (!searchEl.value) searchEl.focus();
+  });
+  api.onWindowShown(() => {
+    document.body.classList.remove('win-enter');
+    void document.body.offsetWidth;
+    document.body.classList.add('win-enter');
   });
 
   bindEvents();

@@ -7,7 +7,7 @@
   <title>历史粘贴板</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body>
+<body class="win-enter">
   <!-- 顶部：可拖拽的标题栏 + 搜索 -->
   <header class="titlebar">
     <div class="search">
@@ -17,12 +17,13 @@
     </div>
     <button id="minimize-btn" class="icon-btn" title="最小化">&#8212;</button>
     <button id="settings-btn" class="icon-btn" title="设置">⚙</button>
+    <button id="close-btn" class="icon-btn" title="关闭">✕</button>
   </header>
 
   <!-- 标签页 -->
   <nav class="tabs">
     <button class="tab on" data-tab="active">全部</button>
-    <button class="tab" data-tab="pinned">置顶</button>
+    <button class="tab" data-tab="favorite">收藏</button>
     <button class="tab" data-tab="expired">已过期<span id="expired-badge" class="badge" hidden>0</span></button>
   </nav>
 
@@ -57,6 +58,14 @@
           <input id="autolaunch" type="checkbox" />
           <span>开机自动启动（常驻后台记录）</span>
         </label>
+      </div>
+      <div class="row">
+        <div class="row-label">关闭窗口时</div>
+        <div class="seg" id="seg-close">
+          <button data-close="exit">直接退出程序</button>
+          <button data-close="tray">最小化到托盘</button>
+        </div>
+        <div class="row-hint">选择“最小化到托盘”后，关闭窗口会继续在后台记录</div>
       </div>
       <div class="row">
         <div class="row-label">呼出快捷键</div>
