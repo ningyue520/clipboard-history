@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld('api', {
   clearExpired: () => ipcRenderer.invoke('clear-expired'),
   copyEntry: (id) => ipcRenderer.invoke('copy-entry', id),
   pasteEntry: (id) => ipcRenderer.invoke('paste-entry', id),
+  pauseShortcutCapture: () => ipcRenderer.send('shortcut-capture-start'),
+  resumeShortcutCapture: () => ipcRenderer.send('shortcut-capture-end'),
 
   onUpdate: (cb) => ipcRenderer.on('entries-updated', (_e, state) => cb(state)),
   onFocusSearch: (cb) => ipcRenderer.on('focus-search', () => cb()),

@@ -14,6 +14,13 @@ const { exec } = require('child_process');
 const APP_ID = 'com.momo.clipboardhistory';
 app.setAppUserModelId(APP_ID);
 
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => showWindow());
+}
+
 // ---------------------------------------------------------------------------
 // 数据位置：系统用户数据目录（%APPDATA%/历史粘贴板）
 // ---------------------------------------------------------------------------
@@ -25,7 +32,7 @@ const imagesDir = path.join(dataDir, 'images');
 const DEFAULT_SETTINGS = {
   retentionDays: 3,          // 1 / 3 / 5
   autoLaunch: true,
-  shortcut: 'Control+Shift+V',
+  shortcut: 'Control+Alt+H',
 };
 
 let settings = { ...DEFAULT_SETTINGS };
@@ -51,6 +58,7 @@ function loadSettings() {
     settings = { ...DEFAULT_SETTINGS, ...data };
   } catch (e) { /* 使用默认值 */ }
   if (![1, 3, 5].includes(settings.retentionDays)) settings.retentionDays = DEFAULT_SETTINGS.retentionDays;
+  if (settings.shortcut === 'Control+Shift+V') settings.shortcut = DEFAULT_SETTINGS.shortcut;
   saveSettings();
 }
 
@@ -97,18 +105,17 @@ function sendUpdate() {
 // ---------------------------------------------------------------------------
 function createWindow() {
   win = new BrowserWindow({
-    width: 920,
-    height: 720,
-    minWidth: 640,
-    minHeight: 480,
+    width: 420,
+    height: 360,
+    minWidth: 320,
+    minHeight: 280,
+    maxWidth: 520,
+    maxHeight: 520,
     show: false,
-    titleBarStyle: 'hidden',
-    titleBarOverlay: {
-      color: '#00000000',
-      symbolColor: '#666666',
-      height: 44,
-    },
-    backgroundColor: '#00000000',
+    frame: false,
+    movable: true,
+    resizable: true,
+    backgroundColor: '#ffffff',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -116,11 +123,6 @@ function createWindow() {
       backgroundThrottling: false,
     },
   });
-
-  // Win11 亚克力毛玻璃背景
-  if (process.platform === 'win32' && typeof win.setBackgroundMaterial === 'function') {
-    try { win.setBackgroundMaterial('acrylic'); } catch (e) { /* 忽略 */ }
-  }
 
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   win.once('ready-to-show', () => {
@@ -142,7 +144,6 @@ function createWindow() {
 
   win.setIcon(path.join(__dirname, 'assets', 'icon.png'));
 }
-
 function boundsPath() {
   return path.join(dataDir, 'window.json');
 }
@@ -156,7 +157,7 @@ function saveBounds() {
 function restoreBounds() {
   try {
     const b = JSON.parse(fs.readFileSync(boundsPath(), 'utf8'));
-    if (b && b.width && b.height) {
+    if (b && b.width <= 520 && b.height <= 520) {
       // 防止窗口被拖到屏幕外
       win.setBounds(b);
     }
@@ -484,6 +485,10 @@ ipcMain.handle('copy-entry', (_evt, id) => {
   const e = entries.find((x) => x.id === id);
   return e ? writeEntryToClipboard(e) : false;
 });
+ipcMain.on('shortcut-capture-start', () => {
+  try { globalShortcut.unregister(settings.shortcut); } catch (e) { /* ignore */ }
+});
+ipcMain.on('shortcut-capture-end', () => registerShortcut());
 ipcMain.handle('paste-entry', (_evt, id) => {
   const e = entries.find((x) => x.id === id);
   if (!e) return false;

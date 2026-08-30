@@ -14,6 +14,7 @@
 - No package-lock.json or node_modules existed initially.
 - Tesseract downloads language data on first OCR use.
 - Windows installer requires a valid app icon; current icon is generated under assets.
+- contextBridge.exposeInMainWorld creates a non-configurable window property; a top-level const with the same name in the renderer throws "Identifier has already been declared". Renderer app.js wraps its body in an IIFE to avoid the global declaration conflict.
 
 ## Build Notes
 - 

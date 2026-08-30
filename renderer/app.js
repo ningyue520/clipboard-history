@@ -1,5 +1,6 @@
 'use strict';
 
+(() => {
 const api = window.api;
 
 let state = { entries: [], settings: {}, expiredCount: 0 };
@@ -124,8 +125,6 @@ function cardHtml(e) {
 
 function render() {
   const list = visibleEntries();
-  $('#expired-badge').hidden = !state.expiredCount;
-  $('#expired-badge').textContent = state.expiredCount;
   $('#expired-count').textContent = state.expiredCount ? `（${state.expiredCount} 条）` : '';
 
   if (list.length === 0) {
@@ -167,6 +166,14 @@ function render() {
 // 提示气泡
 // ---------------------------------------------------------------------------
 let toastTimer = null;
+function syncSettingsUI(s) {
+  document.querySelectorAll('#seg-retention button').forEach((b) => {
+    b.classList.toggle('on', Number(b.dataset.days) === s.settings.retentionDays);
+  });
+  $('#autolaunch').checked = !!s.settings.autoLaunch;
+  $('#shortcut').value = s.settings.shortcut;
+}
+
 function toast(msg) {
   toastEl.textContent = msg;
   toastEl.hidden = false;
@@ -202,11 +209,6 @@ function bindEvents() {
     searchEl.focus();
   });
 
-  // 保留期限（顶部下拉 + 设置面板）
-  $('#retention').addEventListener('change', (e) => {
-    api.setSettings({ retentionDays: Number(e.target.value) });
-    toast(`保留期限已设为 ${e.target.value} 天`);
-  });
   $('#seg-retention').addEventListener('click', (e) => {
     const btn = e.target.closest('button');
     if (!btn) return;
@@ -214,7 +216,6 @@ function bindEvents() {
     btn.classList.add('on');
     const days = Number(btn.dataset.days);
     api.setSettings({ retentionDays: days });
-    $('#retention').value = String(days);
     toast(`保留期限已设为 ${days} 天`);
   });
 
@@ -228,9 +229,40 @@ function bindEvents() {
     api.setSettings({ autoLaunch: e.target.checked });
     toast(e.target.checked ? '已开启开机自启' : '已关闭开机自启');
   });
-  $('#shortcut').addEventListener('change', (e) => {
-    api.setSettings({ shortcut: e.target.value });
+  const shortcutEl = $('#shortcut');
+  shortcutEl.addEventListener('focus', () => api.pauseShortcutCapture());
+  shortcutEl.addEventListener('blur', () => api.resumeShortcutCapture());
+  shortcutEl.addEventListener('keydown', async (e) => {
+    if (e.key === 'Escape') {
+      shortcutEl.blur();
+      return;
+    }
+    if (['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) return;
+    const parts = [];
+    if (e.ctrlKey) parts.push('Control');
+    if (e.altKey) parts.push('Alt');
+    if (e.shiftKey) parts.push('Shift');
+    if (e.metaKey) parts.push('Super');
+
+    let key = '';
+    if (/^[a-zA-Z]$/.test(e.key)) key = 'Key' + e.key.toUpperCase();
+    else if (/^[0-9]$/.test(e.key)) key = e.key;
+    else if (/^F([1-9]|1[0-2])$/.test(e.key)) key = e.key;
+    else if (['Up', 'Down', 'Left', 'Right', 'Space', 'Enter', 'Backspace', 'Delete', 'Home', 'End', 'PageUp', 'PageDown', 'Tab', 'Insert'].includes(e.key)) key = e.key;
+    else if (e.key.length === 1) key = e.key.toUpperCase();
+
+    if (!key || (!e.ctrlKey && !e.altKey && !e.metaKey && !/^F/.test(key))) {
+      toast('快捷键需包含 Ctrl 或 Alt');
+      return;
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
+    const shortcut = [...parts, key].join('+');
+    shortcutEl.value = shortcut;
+    await api.setSettings({ shortcut });
     toast('快捷键已更新');
+    shortcutEl.blur();
   });
   $('#clear-expired').addEventListener('click', () => {
     api.clearExpired();
@@ -273,14 +305,14 @@ function bindEvents() {
 // ---------------------------------------------------------------------------
 async function init() {
   state = await api.getState();
-  $('#retention').value = String(state.settings.retentionDays);
+  syncSettingsUI(state);
   $('#autolaunch').checked = !!state.settings.autoLaunch;
   $('#shortcut').value = state.settings.shortcut;
   document.querySelectorAll('#seg-retention button').forEach((b) => {
     b.classList.toggle('on', Number(b.dataset.days) === state.settings.retentionDays);
   });
 
-  api.onUpdate((s) => { state = s; render(); });
+  api.onUpdate((s) => { state = s; syncSettingsUI(s); render(); });
   api.onFocusSearch(() => {
     if (!searchEl.value) searchEl.focus();
   });
@@ -290,3 +322,4 @@ async function init() {
 }
 
 init();
+})();
