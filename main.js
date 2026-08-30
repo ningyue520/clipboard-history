@@ -313,8 +313,13 @@ let ocrQueue = Promise.resolve();
 
 async function getOcrWorker() {
   if (ocrWorker) return ocrWorker;
+  // tesseract.js probes cachePath before langPath; local traineddata sits next
+  // to the app (asarUnpack keeps it as real files), so reading it as cache
+  // avoids the worker mis-detecting Electron as a browser env and fetching
+  // Windows paths over http.
+  const langDir = __dirname.replace('app.asar', 'app.asar.unpacked');
   ocrWorker = await Tesseract.createWorker(['chi_sim', 'eng'], 1, {
-    langPath: path.join(__dirname),
+    cachePath: langDir,
     gzip: false,
     logger: (m) => { /* 静默 */ },
   });
