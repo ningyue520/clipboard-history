@@ -522,7 +522,7 @@ ipcMain.handle('toggle-favorite', (_evt, id) => {
 ipcMain.handle('set-entry-note', (_evt, id, note) => {
   const e = entries.find((x) => x.id === id);
   if (e) {
-    e.note = typeof note === 'string' ? note.slice(0, 200) : '';
+    e.note = typeof note === 'string' ? note.slice(0, 60) : '';
     saveEntries();
     sendUpdate();
   }

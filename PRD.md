@@ -40,7 +40,7 @@
 ### Favorites and notes
 
 - The favorites page can filter by `all`, `text`, and `image`.
-- Each entry may store a note up to 200 characters.
+- Each entry may store a note up to 60 characters.
 - Notes are editable on favorite cards.
 - Unfavoriting keeps the note but hides it; re-favoriting restores it.
 - Saving notes uses the `set-entry-note` IPC channel.

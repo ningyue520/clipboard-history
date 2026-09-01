@@ -26,7 +26,7 @@ Existing entries are compatible. Entries may include:
 
 ```json
 {
-  "note": "string up to 200 characters"
+  "note": "string up to 60 characters"
 }
 ```
 
@@ -72,7 +72,7 @@ The final invoke surface has 8 channels.
 
 ### Notes
 
-- Favorite cards render a bounded note textarea/input.
+- Favorite cards render a bounded single-line note input.
 - Input is clamped to 200 characters and saved on commit.
 
 ### Text display

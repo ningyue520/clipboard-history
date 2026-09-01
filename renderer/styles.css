@@ -243,6 +243,46 @@ select {
   letter-spacing: 0.3px;
 }
 
+.fav-filters {
+  display: flex;
+  gap: 4px;
+  margin: 0 16px 2px;
+  padding: 3px;
+  background: rgba(255, 255, 255, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.66);
+  border-radius: 12px;
+}
+
+#fav-filters[hidden] {
+  display: none;
+}
+
+#fav-filters + main .day-divider:first-child {
+  margin-top: 4px;
+}
+
+.filter-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  border: none;
+  cursor: pointer;
+  padding: 7px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-2);
+  background: transparent;
+  border-radius: 9px;
+  text-align: center;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.filter-btn.on {
+  color: var(--accent);
+  background: #fff;
+  box-shadow: 0 1px 7px rgba(15, 23, 42, 0.1);
+}
+
 .card {
   background: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.07);
@@ -283,6 +323,32 @@ select {
   border-radius: 8px;
 }
 
+.note-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 130px;
+  height: 24px;
+  padding: 2px 8px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--ink-2);
+  font-size: 11px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.note-input::placeholder {
+  color: var(--ink-3);
+}
+
+.note-input:focus {
+  border-color: rgba(10, 132, 255, 0.45);
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.12);
+  color: var(--ink);
+}
+
 .card-body {
   font-size: 13px;
   line-height: 1.55;
@@ -293,6 +359,27 @@ select {
   overflow: hidden;
   -webkit-user-select: text;
   user-select: text;
+}
+
+.card.expanded .card-body {
+  max-height: none;
+  overflow: visible;
+}
+
+.expand-btn {
+  margin-top: 6px;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  background: transparent;
+  font-family: inherit;
+}
+
+.expand-btn:hover {
+  text-decoration: underline;
 }
 
 .card-img {
@@ -558,6 +645,29 @@ select {
 
 .danger-btn:hover {
   background: rgba(255, 59, 48, 0.08);
+}
+
+.usage-guide {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.usage-guide summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.usage-guide ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--ink-2);
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .panel-foot {

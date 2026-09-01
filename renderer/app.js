@@ -107,7 +107,7 @@ function cardHtml(e) {
     body = `<img class="card-img" src="img://${e.imageFile}" data-file="${e.imageFile}" alt="图片" />${ocr}`;
   } else {
     const text = highlight(e.text, query);
-    body = `<div class="card-body">${text}</div>`;
+    body = `<div class="card-body">${text}</div><button class="expand-btn" data-act="expand" hidden>展开</button>`;
   }
 
   const actions = e.status === 'active'
@@ -122,17 +122,17 @@ function cardHtml(e) {
 
   const expiredCls = e.status === 'expired' ? ' expired' : '';
   const note = e.isFavorite
-    ? `<textarea class="note-input" maxlength="200" rows="2" placeholder="添加备注..." data-id="${e.id}">${esc(e.note || '')}</textarea>`
+    ? `<input class="note-input" type="text" maxlength="60" placeholder="添加备注" value="${esc(e.note || '')}" data-id="${e.id}" />`
     : '';
   return `
     <div class="card${expiredCls}" data-id="${e.id}">
       <div class="card-meta">
         <span class="time">${time}</span>
         <span class="type-badge">${typeBadge}</span>
+        ${note}
         <div class="card-actions${e.status === 'active' ? ' top' : ' bottom'}">${actions.join('')}</div>
       </div>
       ${body}
-      ${note}
     </div>
   `;
 }
@@ -180,6 +180,12 @@ function render() {
   listEl.innerHTML = html;
   listEl.querySelectorAll('.card').forEach((el, i) => {
     el.style.animationDelay = Math.min(i * 25, 300) + 'ms';
+  });
+  listEl.querySelectorAll('.card-body').forEach((el) => {
+    const expandBtn = el.nextElementSibling;
+    if (expandBtn && expandBtn.matches('.expand-btn')) {
+      expandBtn.hidden = el.scrollHeight <= el.clientHeight;
+    }
   });
 }
 
@@ -295,6 +301,11 @@ function bindEvents() {
       shortcutEl.blur();
       return;
     }
+    if (e.key === 'Backspace' || e.key === 'Delete') {
+      e.preventDefault();
+      shortcutEl.value = '';
+      return;
+    }
     if (['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) return;
     const parts = [];
     if (e.ctrlKey) parts.push('Control');
@@ -349,7 +360,10 @@ function bindEvents() {
     const id = card.dataset.id;
     const act = btn.dataset.act;
 
-    if (act === 'copy') {
+    if (act === 'expand') {
+      const expanded = card.classList.toggle('expanded');
+      btn.textContent = expanded ? '收起' : '展开';
+    } else if (act === 'copy') {
       const ok = await api.copyEntry(id);
       if (ok) toast('已复制到剪贴板，去目标软件 Ctrl+V');
       else toast('复制失败');
@@ -364,7 +378,7 @@ function bindEvents() {
   listEl.addEventListener('dblclick', async (e) => {
     const card = e.target.closest('.card');
     if (!card) return;
-    if (e.target.closest('textarea, input')) return;
+    if (e.target.closest('textarea, input, .expand-btn')) return;
     const timer = imagePreviewTimers.get(card.dataset.id);
     if (timer) {
       clearTimeout(timer);
@@ -377,7 +391,7 @@ function bindEvents() {
   listEl.addEventListener('change', async (e) => {
     const noteInput = e.target.closest('.note-input');
     if (!noteInput) return;
-    await api.setEntryNote(noteInput.dataset.id, noteInput.value.slice(0, 200));
+    await api.setEntryNote(noteInput.dataset.id, noteInput.value.slice(0, 60));
   });
 }
 
