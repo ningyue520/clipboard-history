@@ -1,13 +1,13 @@
 # HANDOFF - ClipboardHistory
 
-> Updated: 2026-08-30
+> Updated: 2026-09-01
 > Repo: https://github.com/ningyue520/clipboard-history (private)
 > Branch: main, Tags: v1.0, v1.1
 
 ## Current Status
 
-- v1.1 complete: close button, light motion + frosted glass, closable close behavior, standalone image preview, favorites replace pin, paste removed.
-- Installer: `dist/v1.1/历史粘贴板 Setup 1.1.0.exe`; v1.0 installer kept in `dist/`.
+- v1.2 implementation has started. `PRD.md` and `Tech-Spec.md` define scope, data contracts, IPC changes, and acceptance criteria.
+- Runtime data remains compatible; no existing `entries.json` reset or migration rewrite is required.
 
 ## v1.1 Features
 
