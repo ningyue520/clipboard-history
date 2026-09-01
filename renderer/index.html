@@ -33,6 +33,12 @@
     <button class="tab" data-tab="expired">已过期<span id="expired-badge" class="badge" hidden>0</span></button>
   </nav>
 
+  <div id="fav-filters" class="fav-filters" hidden>
+    <button class="filter-btn on" data-filter="all">全部</button>
+    <button class="filter-btn" data-filter="text">文本</button>
+    <button class="filter-btn" data-filter="image">图片</button>
+  </div>
+
   <!-- 卡片列表 -->
   <main id="list"></main>
 
@@ -84,7 +90,7 @@
         <div class="row-hint">清空后无法恢复</div>
       </div>
       <div class="panel-foot">
-        历史粘贴板 v1.0 · 数据只保存在本机
+        历史粘贴板 v1.2 · 数据只保存在本机
       </div>
     </div>
   </div>

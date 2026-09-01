@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('api', {
   getState: () => ipcRenderer.invoke('get-state'),
   setSettings: (partial) => ipcRenderer.invoke('set-settings', partial),
   toggleFavorite: (id) => ipcRenderer.invoke('toggle-favorite', id),
+  setEntryNote: (id, note) => ipcRenderer.invoke('set-entry-note', id, note),
   deleteEntry: (id) => ipcRenderer.invoke('delete-entry', id),
   clearExpired: () => ipcRenderer.invoke('clear-expired'),
   copyEntry: (id) => ipcRenderer.invoke('copy-entry', id),

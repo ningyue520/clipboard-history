@@ -6,6 +6,7 @@ const api = window.api;
 let state = { entries: [], settings: {}, expiredCount: 0 };
 let currentTab = 'active';
 let query = '';
+let favoriteFilter = 'all';
 
 const $ = (sel) => document.querySelector(sel);
 const listEl = $('#list');
@@ -67,6 +68,9 @@ function visibleEntries() {
   let list = state.entries;
   if (currentTab === 'favorite') {
     list = list.filter((e) => e.isFavorite);
+    if (favoriteFilter !== 'all') {
+      list = list.filter((e) => e.type === favoriteFilter);
+    }
   } else if (currentTab === 'expired') {
     list = list.filter((e) => e.status === 'expired');
   } else {
@@ -117,6 +121,9 @@ function cardHtml(e) {
       ];
 
   const expiredCls = e.status === 'expired' ? ' expired' : '';
+  const note = e.isFavorite
+    ? `<textarea class="note-input" maxlength="200" rows="2" placeholder="添加备注..." data-id="${e.id}">${esc(e.note || '')}</textarea>`
+    : '';
   return `
     <div class="card${expiredCls}" data-id="${e.id}">
       <div class="card-meta">
@@ -125,13 +132,14 @@ function cardHtml(e) {
         <div class="card-actions${e.status === 'active' ? ' top' : ' bottom'}">${actions.join('')}</div>
       </div>
       ${body}
-      <div class="card-actions">${actions.join('')}</div>
+      ${note}
     </div>
   `;
 }
 
 function render() {
   const list = visibleEntries();
+  $('#fav-filters').hidden = currentTab !== 'favorite';
   $('#expired-count').textContent = state.expiredCount ? `（${state.expiredCount} 条）` : '';
   const badge = $('#expired-badge');
   badge.hidden = !state.expiredCount;
@@ -222,6 +230,15 @@ function bindEvents() {
       currentTab = btn.dataset.tab;
       render();
     });
+  });
+
+  $('#fav-filters').addEventListener('click', (e) => {
+    const btn = e.target.closest('.filter-btn');
+    if (!btn) return;
+    document.querySelectorAll('#fav-filters .filter-btn').forEach((b) => b.classList.remove('on'));
+    btn.classList.add('on');
+    favoriteFilter = btn.dataset.filter;
+    render();
   });
 
   // 搜索
@@ -347,6 +364,7 @@ function bindEvents() {
   listEl.addEventListener('dblclick', async (e) => {
     const card = e.target.closest('.card');
     if (!card) return;
+    if (e.target.closest('textarea, input')) return;
     const timer = imagePreviewTimers.get(card.dataset.id);
     if (timer) {
       clearTimeout(timer);
@@ -354,6 +372,12 @@ function bindEvents() {
     }
     const ok = await api.copyEntry(card.dataset.id);
     if (ok) toast('已复制到剪贴板');
+  });
+
+  listEl.addEventListener('change', async (e) => {
+    const noteInput = e.target.closest('.note-input');
+    if (!noteInput) return;
+    await api.setEntryNote(noteInput.dataset.id, noteInput.value.slice(0, 200));
   });
 }
 

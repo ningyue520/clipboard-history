@@ -519,6 +519,15 @@ ipcMain.handle('toggle-favorite', (_evt, id) => {
   }
   return getPayload();
 });
+ipcMain.handle('set-entry-note', (_evt, id, note) => {
+  const e = entries.find((x) => x.id === id);
+  if (e) {
+    e.note = typeof note === 'string' ? note.slice(0, 200) : '';
+    saveEntries();
+    sendUpdate();
+  }
+  return getPayload();
+});
 ipcMain.handle('delete-entry', (_evt, id) => {
   const idx = entries.findIndex((x) => x.id === id);
   if (idx >= 0) {
