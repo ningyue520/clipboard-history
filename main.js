@@ -39,6 +39,7 @@ const imagesDir = path.join(dataDir, 'images');
 const DEFAULT_SETTINGS = {
   retentionDays: 3,          // 1 / 3 / 5
   autoLaunch: true,
+  silentLaunch: false,
   closeToTray: false,
   windowLocked: false,
   shortcut: 'Control+Alt+H',
@@ -460,13 +461,16 @@ function applyAutoLaunch() {
     return;
   }
   if (app.isPackaged) {
-    app.setLoginItemSettings({ openAtLogin: true, args: ['--silent-launch'] });
+    app.setLoginItemSettings({
+      openAtLogin: true,
+      args: settings.silentLaunch ? ['--silent-launch'] : [],
+    });
   } else {
     // 开发模式下启动 electron.exe 并带上项目路径
     app.setLoginItemSettings({
       openAtLogin: true,
       path: process.execPath,
-      args: [app.getAppPath(), '--silent-launch'],
+      args: [app.getAppPath(), ...(settings.silentLaunch ? ['--silent-launch'] : [])],
     });
   }
 }
@@ -477,6 +481,7 @@ function applySettings(partial) {
   if ('retentionDays' in partial) processExpirations();
   if ('shortcut' in partial) registerShortcut();
   if ('autoLaunch' in partial) applyAutoLaunch();
+  if ('silentLaunch' in partial) applyAutoLaunch();
   sendUpdate();
 }
 

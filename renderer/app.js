@@ -201,6 +201,8 @@ function syncSettingsUI(s) {
     b.classList.toggle('on', (b.dataset.close === 'tray') === !!s.settings.closeToTray);
   });
   $('#autolaunch').checked = !!s.settings.autoLaunch;
+  $('#silent-launch').checked = !!s.settings.silentLaunch;
+  $('#silent-launch').disabled = !s.settings.autoLaunch;
   $('#shortcut').value = s.settings.shortcut;
   applyWindowLock(!!s.settings.windowLocked);
 }
@@ -286,6 +288,10 @@ function bindEvents() {
     api.setSettings({ autoLaunch: e.target.checked });
     toast(e.target.checked ? '已开启开机自启' : '已关闭开机自启');
   });
+  $('#silent-launch').addEventListener('change', (e) => {
+    api.setSettings({ silentLaunch: e.target.checked });
+    toast(e.target.checked ? '开机后将在托盘静默运行' : '开机后将显示主窗口');
+  });
   $('#seg-close').addEventListener('click', (e) => {
     const btn = e.target.closest('button');
     if (!btn) return;
@@ -315,13 +321,16 @@ function bindEvents() {
 
     let key = '';
     if (/^[a-zA-Z]$/.test(e.key)) key = e.key.toUpperCase();
-    else if (/^[0-9]$/.test(e.key)) key = e.key;
-    else if (/^F([1-9]|1[0-2])$/.test(e.key)) key = e.key;
-    else if (['Up', 'Down', 'Left', 'Right', 'Space', 'Enter', 'Backspace', 'Delete', 'Home', 'End', 'PageUp', 'PageDown', 'Tab', 'Insert'].includes(e.key)) key = e.key;
+    else if (e.key === ' ') key = 'Space';
+    else if (e.key === 'ArrowUp') key = 'Up';
+    else if (e.key === 'ArrowDown') key = 'Down';
+    else if (e.key === 'ArrowLeft') key = 'Left';
+    else if (e.key === 'ArrowRight') key = 'Right';
     else if (e.key.length === 1) key = e.key.toUpperCase();
+    else key = e.key;
 
-    if (!key || (!e.ctrlKey && !e.altKey && !e.metaKey && !/^F/.test(key))) {
-      toast('快捷键需包含 Ctrl 或 Alt');
+    if (!key || key === 'Unidentified' || key === 'Dead') {
+      toast('无法识别该按键');
       return;
     }
 

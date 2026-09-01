@@ -72,6 +72,12 @@
         </label>
       </div>
       <div class="row">
+        <label class="check">
+          <input id="silent-launch" type="checkbox" />
+          <span>静默启动（开机后仅在托盘运行）</span>
+        </label>
+      </div>
+      <div class="row">
         <div class="row-label">关闭窗口时</div>
         <div class="seg" id="seg-close">
           <button data-close="exit">直接退出程序</button>
@@ -82,7 +88,7 @@
       <div class="row">
         <div class="row-label">呼出快捷键</div>
         <input id="shortcut" class="retention-select" type="text" readonly placeholder="点击后按下新快捷键" title="点击输入框后按下新的组合键" />
-        <div class="row-hint">点击输入框后按下新组合键，例如 Ctrl + Alt + H</div>
+        <div class="row-hint">点击输入框后按下新快捷键，可使用单键或组合键</div>
       </div>
       <div class="row">
         <div class="row-label">已过期内容 <span id="expired-count" class="muted"></span></div>
