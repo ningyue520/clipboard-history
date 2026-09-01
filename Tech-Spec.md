@@ -53,7 +53,8 @@ The final invoke surface has 8 channels.
 ### Startup
 
 - Parse `process.argv` for `--silent-launch`.
-- Auto-launch packaged executables with `--silent-launch`; development auto-launch also includes the parameter.
+- Auto-launch includes `--silent-launch` only when `settings.silentLaunch` is enabled.
+- Settings expose a `silentLaunch` switch that is disabled when auto-launch is off.
 - `createWindow()` receives the launch mode. Hidden mode skips the `ready-to-show` window presentation and still initializes the tray, shortcut, capture, persistence, and polling.
 - `showWindow()` behavior remains manual launch, tray recall, hotkey recall, and second-instance recall.
 
@@ -73,7 +74,12 @@ The final invoke surface has 8 channels.
 ### Notes
 
 - Favorite cards render a bounded single-line note input.
-- Input is clamped to 200 characters and saved on commit.
+- Input is clamped to 60 characters and saved on commit.
+
+### Shortcut
+
+- Shortcut recording accepts single keys and modifier combinations.
+- Modifier-only presses are ignored; Backspace/Delete clears the recording.
 
 ### Text display
 

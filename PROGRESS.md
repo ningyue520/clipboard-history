@@ -1,6 +1,6 @@
 # 项目进度总结（历史粘贴板）
 
-> 更新时间：2026-09-01 · v1.2 规范与实现基线已建立。接手前先读 `AGENTS.md` 和 `MEMORY.md`。
+> 更新时间：2026-09-01 · v1.2 功能开发完成，进入集成验证与发布阶段。接手前先读 `AGENTS.md` 和 `MEMORY.md`。
 
 ## 一、项目概况
 
@@ -9,11 +9,20 @@
 - 仓库：本地 `D:\Codexapp\ClipboardHistory`；远程 https://github.com/ningyue520/clipboard-history（私有）。
 - 版本：`v1.0` 与 `v1.1` 均已打标签；v1.1 安装包位于 `dist/v1.1/`，v1.0 安装包保留在 `dist/`。
 
-## 二、v1.2 进行中
+## 二、v1.2 完成内容
+
+1. 静默启动：`silentLaunch` 设置、托盘启动行为、自启参数 `--silent-launch`。
+2. 窗口锁定：标题栏锁形按钮，`windowLocked` 持久化；只锁位置，不影响功能与调整大小。
+3. 卡片操作：活动卡片仅保留右上角星标/X，双击复制；图片单击延迟预览、双击取消预览并复制。
+4. 收藏与备注：全部/文本/图片筛选；备注上限 60 字，取消收藏后备注保留。
+5. 文本与设置：长文本展开/收起；设置页折叠使用说明；版本号更新为 v1.2。
+6. 快捷键：录制不再要求必须包含 Ctrl/Alt，支持单键或组合键；Backspace/Delete 清空重录。
+7. 视觉：收藏筛选等宽分段、面板滚动条圆角、备注输入紧凑胶囊样式。
 
 1. 新增 `PRD.md` 和 `Tech-Spec.md`，定义启动、锁定、卡片、收藏、备注、文本显示和 v1.2 验收标准。
-2. 数据契约新增可选 `silentLaunch`、`windowLocked` 和 `entry.note`；计划新增 `set-entry-note` IPC。
-3. 现有本地 `entries.json` 不重置、不迁移重写。
+2. 数据契约新增可选 `silentLaunch`、`windowLocked` 和 `entry.note`。
+3. 新增 `set-entry-note` IPC，invoke 通道从 7 个增加到 8 个。
+4. 现有本地 `entries.json` 不重置、不迁移重写。
 
 ## 三、v1.1 完成内容
 

@@ -20,6 +20,7 @@
 
 - `silentLaunch` defaults to `false`.
 - Auto-launch registration includes `--silent-launch`.
+- Settings expose a silent-launch switch that only affects auto-launch.
 - When launched with `--silent-launch`, the main window remains hidden and the app stays in the tray.
 - Manual launches always show the main window.
 
@@ -50,6 +51,7 @@
 - Long text cards expose expand/collapse without changing double-click-to-copy behavior.
 - Settings contain a collapsible usage guide covering double-click copy, star/close actions, favorites filters, notes, window lock, shortcut, and local storage.
 - Settings text and footer display v1.2.
+- Shortcut recording accepts a single key or a modifier combination and is not restricted to Ctrl/Alt.
 
 ## Non-goals
 

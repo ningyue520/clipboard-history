@@ -6,8 +6,17 @@
 
 ## Current Status
 
-- v1.2 implementation has started. `PRD.md` and `Tech-Spec.md` define scope, data contracts, IPC changes, and acceptance criteria.
+- v1.2 feature implementation is complete; final integration checks and release packaging are in progress.
 - Runtime data remains compatible; no existing `entries.json` reset or migration rewrite is required.
+
+## v1.2 Features
+
+1. Silent auto-launch: `silentLaunch` setting, tray-only startup with `--silent-launch`, and normal visible manual launches.
+2. Window lock: titlebar lock control, persisted `windowLocked`, position lock only.
+3. Card actions: star/delete controls only; double-click copies any card; image single-click delays preview and double-click cancels preview before copying.
+4. Favorites: `all/text/image` filters, compact note input up to 60 characters, and note retention through unfavorite/refavorite.
+5. Text/settings: long-text expand/collapse, collapsible usage guide, v1.2 footer, rounded filters/scrollbar.
+6. Shortcut: accepts single keys or modifier combinations; Backspace/Delete clears recording.
 
 ## v1.1 Features
 
@@ -23,7 +32,7 @@
 
 ## IPC Surface
 
-- invoke: get-state, set-settings, toggle-favorite, delete-entry, clear-expired, copy-entry, preview-image
+- invoke: get-state, set-settings, toggle-favorite, set-entry-note, delete-entry, clear-expired, copy-entry, preview-image
 - one-way: shortcut-capture-start, shortcut-capture-end, minimize-window, close-window
 - renderer events: entries-updated, focus-search, window-shown
 
@@ -34,7 +43,7 @@ ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-
 npx electron-builder --config.win.signAndEditExecutable=false
 ```
 
-Copy the new exe into `dist/v1.1/`; keep v1.0 exe untouched.
+Copy the new exe into `dist/v1.2/`; keep older installers untouched.
 
 ## Runtime Data
 

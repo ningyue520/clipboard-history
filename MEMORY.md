@@ -1,7 +1,7 @@
 # MEMORY.md
 
 ## Last updated
-2026-08-30
+2026-09-01
 
 ## Decisions
 - Electron desktop clipboard manager; local-only persistence under userData.
@@ -12,6 +12,11 @@
 - v1.1: "paste now" removed; card actions are copy / favorite / delete.
 - On startup the current clipboard content is recorded as a baseline and not saved as history; only copies made after launch become entries, so fresh installs open blank.
 - v1.1 motion is CSS-only (card stagger, press feedback, panel pop, window fade) plus frosted glass on search/tabs/panel; cards stay solid for readability.
+- v1.2: auto-launch can be silent via `--silent-launch`; manual launches stay visible.
+- v1.2: window lock is CSS-only for titlebar dragging and does not disable resizing or features.
+- v1.2: active cards use star/delete controls; double-click copies, while image preview is delayed on single click and cancelled by double-click.
+- v1.2: favorites support all/text/image filters and 60-character notes; notes survive unfavorite/refavorite.
+- v1.2: shortcut recording accepts single keys or modifier combinations; it is not limited to Ctrl/Alt.
 - OCR languages: chi_sim + eng.
 - UI: macOS-inspired acrylic/glass look with CSS fallback.
 
