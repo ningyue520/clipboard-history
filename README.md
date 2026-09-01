@@ -37,6 +37,10 @@
 - 图片 OCR 识别在本机进行，识别文本仅用于本地搜索。
 - 数据目录：`%APPDATA%\历史粘贴板`。
 
+## 更新日志
+
+查看每个版本的新增、调整和修复内容，请阅读 [CHANGELOG.md](CHANGELOG.md)。
+
 ## 开发
 
 本项目使用 Electron、原生 HTML/CSS/JS 和 Tesseract OCR。
