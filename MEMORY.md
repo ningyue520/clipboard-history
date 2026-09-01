@@ -17,6 +17,7 @@
 - v1.2: active cards use star/delete controls; double-click copies, while image preview is delayed on single click and cancelled by double-click.
 - v1.2: favorites support all/text/image filters and 60-character notes; notes survive unfavorite/refavorite.
 - v1.2: shortcut recording accepts single keys or modifier combinations; it is not limited to Ctrl/Alt.
+- Every version iteration must build an installer, save it under `dist/vX.Y.Z/` (currently `dist/v1.2/`), and install the new version locally after verification.
 - OCR languages: chi_sim + eng.
 - UI: macOS-inspired acrylic/glass look with CSS fallback.
 

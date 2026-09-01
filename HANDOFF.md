@@ -6,7 +6,7 @@
 
 ## Current Status
 
-- v1.2 feature implementation is complete; final integration checks and release packaging are in progress.
+- v1.2 is complete. Installer: `dist/v1.2/历史粘贴板 Setup 1.2.0.exe`; local installation verified and app launched.
 - Runtime data remains compatible; no existing `entries.json` reset or migration rewrite is required.
 
 ## v1.2 Features
