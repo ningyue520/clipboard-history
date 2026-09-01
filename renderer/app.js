@@ -13,6 +13,7 @@ const emptyEl = $('#empty');
 const emptyText = $('#empty-text');
 const searchEl = $('#search');
 const toastEl = $('#toast');
+const imagePreviewTimers = new Map();
 
 const LOCK_ICONS = {
   locked: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2.5"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>`,
@@ -95,7 +96,6 @@ function highlight(s, q) {
 function cardHtml(e) {
   const time = formatTime(e.createdAt);
   const typeBadge = e.type === 'image' ? '图片' : '文字';
-  const fav = e.isFavorite ? `<span class="fav-flag">⭐ 已收藏</span>` : '';
 
   let body;
   if (e.type === 'image') {
@@ -106,12 +106,15 @@ function cardHtml(e) {
     body = `<div class="card-body">${text}</div>`;
   }
 
-  const actions = [];
-  actions.push(`<button class="btn primary" data-act="copy" title="复制到剪贴板">复制</button>`);
-  if (e.status === 'active') {
-    actions.push(`<button class="btn ${e.isFavorite ? 'fav' : ''}" data-act="fav" title="${e.isFavorite ? '取消收藏' : '收藏，永不过期'}">${e.isFavorite ? '取消收藏' : '收藏'}</button>`);
-  }
-  actions.push(`<button class="btn danger" data-act="del" title="删除">删除</button>`);
+  const actions = e.status === 'active'
+    ? [
+        `<button class="action-btn${e.isFavorite ? ' active' : ''}" data-act="fav" title="${e.isFavorite ? '取消收藏' : '收藏，永不过期'}">${e.isFavorite ? '★' : '☆'}</button>`,
+        `<button class="action-btn danger" data-act="del" title="删除">✕</button>`,
+      ]
+    : [
+        `<button class="btn primary" data-act="copy" title="复制到剪贴板">复制</button>`,
+        `<button class="btn danger" data-act="del" title="删除">删除</button>`,
+      ];
 
   const expiredCls = e.status === 'expired' ? ' expired' : '';
   return `
@@ -119,7 +122,7 @@ function cardHtml(e) {
       <div class="card-meta">
         <span class="time">${time}</span>
         <span class="type-badge">${typeBadge}</span>
-        ${fav}
+        <div class="card-actions${e.status === 'active' ? ' top' : ' bottom'}">${actions.join('')}</div>
       </div>
       ${body}
       <div class="card-actions">${actions.join('')}</div>
@@ -312,7 +315,17 @@ function bindEvents() {
     const btn = e.target.closest('button[data-act]');
     if (!btn) {
       const img = e.target.closest('.card-img');
-      if (img && img.dataset.file) api.previewImage(img.dataset.file);
+      if (img && img.dataset.file) {
+        const card = img.closest('.card');
+        const id = card.dataset.id;
+        if (!imagePreviewTimers.has(id)) {
+          const timer = setTimeout(() => {
+            imagePreviewTimers.delete(id);
+            api.previewImage(img.dataset.file);
+          }, 250);
+          imagePreviewTimers.set(id, timer);
+        }
+      }
       return;
     }
     const card = btn.closest('.card');
@@ -330,10 +343,15 @@ function bindEvents() {
     }
   });
 
-  // 点击图片卡片也可复制
+  // 双击任意卡片复制，并取消未触发的图片预览
   listEl.addEventListener('dblclick', async (e) => {
     const card = e.target.closest('.card');
     if (!card) return;
+    const timer = imagePreviewTimers.get(card.dataset.id);
+    if (timer) {
+      clearTimeout(timer);
+      imagePreviewTimers.delete(card.dataset.id);
+    }
     const ok = await api.copyEntry(card.dataset.id);
     if (ok) toast('已复制到剪贴板');
   });
