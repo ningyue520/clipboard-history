@@ -55,6 +55,10 @@ body {
   border-bottom: none;
 }
 
+.locked .titlebar {
+  -webkit-app-region: no-drag;
+}
+
 .search {
   -webkit-app-region: no-drag;
   flex: 1;
@@ -120,6 +124,11 @@ body {
 
 .icon-btn:hover {
   background: rgba(0, 0, 0, 0.08);
+}
+
+.icon-btn svg {
+  width: 17px;
+  height: 17px;
 }
 
 .icon-btn:active {

@@ -14,6 +14,11 @@ const emptyText = $('#empty-text');
 const searchEl = $('#search');
 const toastEl = $('#toast');
 
+const LOCK_ICONS = {
+  locked: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2.5"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>`,
+  unlocked: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2.5"></rect><path d="M8 11V7a4 4 0 0 1 7.6-1.7"></path></svg>`,
+};
+
 // ---------------------------------------------------------------------------
 // 时间显示
 // ---------------------------------------------------------------------------
@@ -180,6 +185,15 @@ function syncSettingsUI(s) {
   });
   $('#autolaunch').checked = !!s.settings.autoLaunch;
   $('#shortcut').value = s.settings.shortcut;
+  applyWindowLock(!!s.settings.windowLocked);
+}
+
+function applyWindowLock(locked) {
+  document.body.classList.toggle('locked', locked);
+  const lockBtn = $('#lock-btn');
+  lockBtn.innerHTML = locked ? LOCK_ICONS.locked : LOCK_ICONS.unlocked;
+  lockBtn.title = locked ? '解锁窗口位置' : '锁定窗口位置';
+  lockBtn.classList.toggle('locked', locked);
 }
 
 function toast(msg) {
@@ -233,6 +247,11 @@ function bindEvents() {
 
   // 设置面板开关
   $('#settings-btn').addEventListener('click', () => $('#settings-overlay').hidden = false);
+  $('#lock-btn').addEventListener('click', () => {
+    const locked = !state.settings.windowLocked;
+    api.setSettings({ windowLocked: locked });
+    toast(locked ? '窗口位置已锁定' : '窗口位置已解锁');
+  });
   $('#settings-close').addEventListener('click', () => $('#settings-overlay').hidden = true);
   $('#settings-overlay').addEventListener('click', (e) => {
     if (e.target === $('#settings-overlay')) $('#settings-overlay').hidden = true;

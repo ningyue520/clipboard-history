@@ -40,6 +40,7 @@ const DEFAULT_SETTINGS = {
   retentionDays: 3,          // 1 / 3 / 5
   autoLaunch: true,
   closeToTray: false,
+  windowLocked: false,
   shortcut: 'Control+Alt+H',
 };
 
