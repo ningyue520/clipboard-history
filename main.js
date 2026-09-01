@@ -13,6 +13,8 @@ const Tesseract = require('tesseract.js');
 const APP_ID = 'com.momo.clipboardhistory';
 app.setAppUserModelId(APP_ID);
 
+const silentLaunchRequested = process.argv.includes('--silent-launch');
+
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {
   app.quit();
@@ -118,7 +120,7 @@ function sendUpdate() {
 // ---------------------------------------------------------------------------
 // 窗口
 // ---------------------------------------------------------------------------
-function createWindow() {
+function createWindow(silent = false) {
   win = new BrowserWindow({
     width: 420,
     height: 360,
@@ -142,7 +144,7 @@ function createWindow() {
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   win.once('ready-to-show', () => {
     restoreBounds();
-    win.show();
+    if (!silent) win.show();
   });
 
   // 关闭行为：默认直接退出，开启 closeToTray 后隐藏到托盘
@@ -457,13 +459,13 @@ function applyAutoLaunch() {
     return;
   }
   if (app.isPackaged) {
-    app.setLoginItemSettings({ openAtLogin: true });
+    app.setLoginItemSettings({ openAtLogin: true, args: ['--silent-launch'] });
   } else {
     // 开发模式下启动 electron.exe 并带上项目路径
     app.setLoginItemSettings({
       openAtLogin: true,
       path: process.execPath,
-      args: [app.getAppPath()],
+      args: [app.getAppPath(), '--silent-launch'],
     });
   }
 }
@@ -557,7 +559,7 @@ app.whenReady().then(() => {
   loadSettings();
   loadEntries();
   registerImageProtocol();
-  createWindow();
+  createWindow(silentLaunchRequested);
   createTray();
   registerShortcut();
   applyAutoLaunch();
